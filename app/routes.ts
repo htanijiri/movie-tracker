@@ -21,7 +21,12 @@ const devOnlyRoutes = import.meta.env.DEV
 
 export default [
   // ログインが必要なルートは、すべてこのレイアウトの下に置く。
-  layout("routes/app-layout.tsx", [index("routes/home.tsx")]),
+  layout("routes/app-layout.tsx", [
+    index("routes/home.tsx"),
+    route("search", "routes/search.tsx"),
+    route("movies/:tmdbId", "routes/movie.tsx"),
+    route("list", "routes/list.tsx"),
+  ]),
   ...publicRoutes,
   ...devOnlyRoutes,
 ] satisfies RouteConfig;

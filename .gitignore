@@ -45,3 +45,6 @@ worker-configuration.d.ts
 
 # テストのカバレッジ
 coverage/
+
+# 本番のシークレットを登録するときの一時ファイル（docs/DEPLOY.md）
+.prod.vars

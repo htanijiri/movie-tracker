@@ -1,6 +1,8 @@
 import { applyD1Migrations, env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, vi } from "vitest";
 
+import { settleBackgroundTasks } from "~/lib/background.server";
+
 declare module "cloudflare:test" {
   interface ProvidedEnv extends Env {
     TEST_MIGRATIONS: D1Migration[];
@@ -34,7 +36,10 @@ beforeEach(async () => {
   );
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // 応答のあとに続けている処理が、通信の差し替えを外す前に終わるのを待つ
+  // （差し替えを外したあとに動くと、外部に実際に通信してしまうため）。
+  await settleBackgroundTasks();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });

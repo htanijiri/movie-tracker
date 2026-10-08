@@ -28,13 +28,14 @@ export const WATCHED_MEDIUM_LABELS: Record<WatchedMedium, string> = {
 export const SELECTABLE_MEDIUMS = ["THEATER", "STREAMING", "NONE"] as const;
 export type SelectableMedium = (typeof SELECTABLE_MEDIUMS)[number];
 
+// parts は、狭い画面で改行してよい位置で区切ったもの（つなげると label になる）。
 export const MEDIUM_BUTTON_LABELS: Record<
   SelectableMedium,
-  { emoji: string; label: string }
+  { emoji: string; label: string; parts: string[] }
 > = {
-  THEATER: { emoji: "🎬", label: "劇場で見たい" },
-  STREAMING: { emoji: "📺", label: "サブスクで見たい" },
-  NONE: { emoji: "❌", label: "見送る" },
+  THEATER: { emoji: "🎬", label: "劇場で見たい", parts: ["劇場で", "見たい"] },
+  STREAMING: { emoji: "📺", label: "サブスクで見たい", parts: ["サブスクで", "見たい"] },
+  NONE: { emoji: "❌", label: "見送る", parts: ["見送る"] },
 };
 
 export type StateKey = "theater" | "streaming" | "watched" | "skipped" | "other";

@@ -12,3 +12,7 @@ export const TMDB_LOGO_URL =
   "https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg";
 export const TMDB_URL = "https://www.themoviedb.org/";
 export const JUSTWATCH_URL = "https://www.justwatch.com/jp";
+
+// TMDb から情報を取得できなかったときに、画面に出す案内。
+export const TMDB_ERROR_MESSAGE =
+  "映画情報を取得できませんでした。時間をおいて試してください";
