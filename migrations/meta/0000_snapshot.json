@@ -1,0 +1,319 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "3543f2d1-d705-40ea-b521-3fa846888e08",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "movies": {
+      "name": "movies",
+      "columns": {
+        "tmdb_id": {
+          "name": "tmdb_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_title": {
+          "name": "original_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_date": {
+          "name": "release_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "poster_path": {
+          "name": "poster_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "user_movies": {
+      "name": "user_movies",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tmdb_id": {
+          "name": "tmdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preferred_medium": {
+          "name": "preferred_medium",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "discovery_type": {
+          "name": "discovery_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "discovery_date": {
+          "name": "discovery_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "discovery_place": {
+          "name": "discovery_place",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "discovery_note": {
+          "name": "discovery_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "watched_at": {
+          "name": "watched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "watched_medium": {
+          "name": "watched_medium",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "watched_place": {
+          "name": "watched_place",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rating": {
+          "name": "rating",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "review": {
+          "name": "review",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "user_movies_user_tmdb_unique": {
+          "name": "user_movies_user_tmdb_unique",
+          "columns": [
+            "user_id",
+            "tmdb_id"
+          ],
+          "isUnique": true
+        },
+        "user_movies_user_status_medium_idx": {
+          "name": "user_movies_user_status_medium_idx",
+          "columns": [
+            "user_id",
+            "status",
+            "preferred_medium"
+          ],
+          "isUnique": false
+        },
+        "user_movies_user_watched_at_idx": {
+          "name": "user_movies_user_watched_at_idx",
+          "columns": [
+            "user_id",
+            "watched_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "user_movies_user_id_users_id_fk": {
+          "name": "user_movies_user_id_users_id_fk",
+          "tableFrom": "user_movies",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "user_movies_tmdb_id_movies_tmdb_id_fk": {
+          "name": "user_movies_tmdb_id_movies_tmdb_id_fk",
+          "tableFrom": "user_movies",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "tmdb_id"
+          ],
+          "columnsTo": [
+            "tmdb_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "user_movies_status_check": {
+          "name": "user_movies_status_check",
+          "value": "\"user_movies\".\"status\" IN ('INTERESTED', 'WANT_TO_WATCH', 'WATCHED', 'SKIPPED')"
+        },
+        "user_movies_preferred_medium_check": {
+          "name": "user_movies_preferred_medium_check",
+          "value": "\"user_movies\".\"preferred_medium\" IS NULL OR \"user_movies\".\"preferred_medium\" IN ('THEATER', 'STREAMING', 'RENTAL', 'ANY', 'NONE')"
+        },
+        "user_movies_discovery_type_check": {
+          "name": "user_movies_discovery_type_check",
+          "value": "\"user_movies\".\"discovery_type\" IS NULL OR \"user_movies\".\"discovery_type\" IN ('THEATER_TRAILER', 'TV_CM', 'WEB_CM', 'SNS', 'ARTICLE', 'FRIEND', 'OTHER')"
+        },
+        "user_movies_watched_medium_check": {
+          "name": "user_movies_watched_medium_check",
+          "value": "\"user_movies\".\"watched_medium\" IS NULL OR \"user_movies\".\"watched_medium\" IN ('THEATER', 'STREAMING', 'RENTAL', 'OTHER')"
+        },
+        "user_movies_rating_check": {
+          "name": "user_movies_rating_check",
+          "value": "\"user_movies\".\"rating\" IS NULL OR (\"user_movies\".\"rating\" BETWEEN 1 AND 5)"
+        }
+      }
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "google_sub": {
+          "name": "google_sub",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "users_google_sub_unique": {
+          "name": "users_google_sub_unique",
+          "columns": [
+            "google_sub"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

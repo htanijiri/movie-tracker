@@ -1,0 +1,19 @@
+# 手元の開発用の秘密情報。このファイルを .dev.vars にコピーして、値を書き換える。
+#   cp .dev.vars.example .dev.vars
+# .dev.vars は Git に入らない。値を README やチャットに貼らないこと。
+# `=` の前後に空白を入れず、値を引用符で囲まない。
+# 本番の値は Workers のシークレットに登録する（docs/DEPLOY.md）。
+
+# TMDb の「API Read Access Token」（eyJ で始まる長い文字列。短い「API Key」ではない）
+TMDB_ACCESS_TOKEN=eyJ_your_tmdb_api_read_access_token
+
+# Google の OAuth クライアント（種類は「ウェブ アプリケーション」）
+GOOGLE_CLIENT_ID=000000000000-example.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# このアプリを使ってよい Google アカウントのメールアドレス（複数ならカンマ区切り）
+ALLOWED_EMAILS=you@example.com
+
+# セッション Cookie の署名鍵。32バイト以上のランダムな値にする。
+#   openssl rand -base64 48
+SESSION_SECRET=replace-with-a-long-random-string

@@ -1,0 +1,74 @@
+# main に push すると、テスト → D1 のマイグレーション → デプロイ の順に実行する。
+# テストが失敗した場合、デプロイは行わない（deploy ジョブの needs: test）。
+# pull request では、テストだけを実行する。
+name: test-and-deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-and-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: テスト
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run test
+      - run: pnpm run build
+
+  deploy:
+    name: デプロイ
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      # GitHub のリポジトリのシークレットに登録する（docs/DEPLOY.md）。
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      # トークンが未登録の間は、失敗にせずデプロイを飛ばす。
+      - name: デプロイ用のトークンがあるか確認する
+        id: guard
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN または CLOUDFLARE_ACCOUNT_ID が未登録のため、デプロイを行いませんでした。"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.guard.outputs.enabled == 'true'
+      - uses: pnpm/action-setup@v6
+        if: steps.guard.outputs.enabled == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.guard.outputs.enabled == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.guard.outputs.enabled == 'true'
+      - run: pnpm run build
+        if: steps.guard.outputs.enabled == 'true'
+      # 新しいコードが新しい列を使えるよう、デプロイの前にデータベースの構造を更新する。
+      - name: D1 のマイグレーションを適用する
+        if: steps.guard.outputs.enabled == 'true'
+        run: pnpm exec wrangler d1 migrations apply DB --remote
+      - name: デプロイする
+        if: steps.guard.outputs.enabled == 'true'
+        run: pnpm exec wrangler deploy

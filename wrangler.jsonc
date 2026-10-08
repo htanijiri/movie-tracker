@@ -1,0 +1,35 @@
+/**
+ * Wrangler の設定。項目の説明：
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ *
+ * 秘密情報（TMDb のトークン、Google のクライアント情報、許可するメールアドレス、
+ * セッションの署名鍵）はここに書かない。手元は .dev.vars、本番は Workers の
+ * シークレットに登録する（.dev.vars.example と docs/DEPLOY.md を参照）。
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "movie-tracker",
+	"main": "./workers/app.ts",
+	"compatibility_date": "2026-10-06",
+	"compatibility_flags": ["nodejs_compat"],
+
+	// 公開 URL は独自ドメインの1つだけにする（workers.dev とプレビュー用の URL は無効）。
+	"workers_dev": false,
+	"preview_urls": false,
+	"routes": [{ "pattern": "movie-tracker.tanijiri.dev", "custom_domain": true }],
+
+	// database_id は識別子であり、秘密情報ではない。
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "movie-tracker",
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "migrations"
+		}
+	],
+
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true
+}
