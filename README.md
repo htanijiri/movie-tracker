@@ -24,14 +24,45 @@
 - Google ログイン（許可したアカウントだけが使える）
 
 ## 構成
+React Router v8（SSR）を Cloudflare Workers で動かし、データは Cloudflare D1 に保存する。
+
 ```
+app/
+  routes.ts            ルートの一覧（ログインが必要なルートは app-layout の下に置く）
+  routes/              画面（home、search、movie、list、about、login、auth.*、logout）
+  components/          画面の部品（ポスター、カード、自分の記録、予告、配信状況）
+  lib/
+    auth/              Google ログイン、セッション、許可リスト、ミドルウェア
+    db/                D1 の定義（schema.ts）と読み書き
+    tmdb/              TMDb の API を呼ぶ部品（サーバー側だけで使う）
+    *.ts               日付、表示の整形、入力チェック、ラベル
+workers/app.ts         Workers のエントリ
+migrations/            D1 のマイグレーション（SQL）
+test/                  自動テスト（Workers のランタイム上で、実物の D1 を使う）
+docs/                  仕様書、技術ノート、デプロイ手順、開発の記録
 ```
+
+- 映画の情報は TMDb から取得し、自分のデータベースには TMDb の ID と、一覧表示用の最小限の情報だけを置く。
+- TMDb のトークンはサーバー側だけで使い、ブラウザには出さない。
+- 技術を選んだ理由とハマりどころは [docs/TECH_NOTES.md](docs/TECH_NOTES.md) を参照。
 
 ## セットアップ
-<!-- 必要なツール、*.example からの設定ファイルの作り方、ローカルでの起動方法 -->
+必要なもの：Node.js 22 以上、pnpm 10、TMDb のアカウント（API Read Access Token）。
+
+```bash
+pnpm install
+cp .dev.vars.example .dev.vars   # 値を書き換える（.dev.vars は Git に入らない）
+pnpm db:migrate:local            # 手元の D1 にテーブルを作る
+pnpm dev                         # http://localhost:5183
+```
+
+- `.dev.vars` に書く値の取得方法は [docs/DEPLOY.md](docs/DEPLOY.md) の「設定値・シークレット」を参照。
+- 開発サーバーでは、ログイン画面に「開発用ログイン」が出る（Google の設定がなくても画面を確認できる。本番のビルドには含まれない）。
+- 変更したら `pnpm check`（型チェック、lint、テスト、ビルド）を通す。テストは外部への通信をすべて差し替えているので、`.dev.vars` がなくても通る。
 
 ## デプロイ
-<!-- デプロイ先と一行の手順を書く。詳細は docs/DEPLOY.md に書く -->
+main ブランチに push すると、GitHub Actions がテスト → D1 のマイグレーション → Cloudflare Workers へのデプロイを行う。テストが失敗した場合、公開版は変わらない。
+初回のセットアップと手動でのデプロイ、ロールバックの手順は [docs/DEPLOY.md](docs/DEPLOY.md) を参照。
 
 ## クレジットとライセンス
 - This product uses the TMDB API but is not endorsed or certified by TMDB.

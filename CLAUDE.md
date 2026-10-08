@@ -22,12 +22,13 @@ movie-tracker：見たいと思った映画を忘れず、見るまで・見た�
 
 ## 技術スタック・設計方針
 選んだ理由は docs/TECH_NOTES.md の「技術選定」に書いてある。
-- **構成**：React Router v7（framework mode、SSR）＋ Cloudflare Workers ＋ Cloudflare D1。ORM は Drizzle、スタイルは Tailwind CSS、パッケージ管理は pnpm、言語は TypeScript（strict）。
+- **構成**：React Router v8（framework mode、SSR）＋ Cloudflare Workers ＋ Cloudflare D1。ORM は Drizzle、スタイルは Tailwind CSS、パッケージ管理は pnpm、言語は TypeScript（strict）。
 - **映画の情報と利用者の情報を分ける。** 映画の情報は TMDb から取得し、自分の DB には `tmdb_id` と、一覧表示用の最小限のスナップショット（`movies`：タイトル、原題、公開日、ポスター）だけを持つ。利用者ごとの情報は `user_movies` に持つ。
-- **認証**：Google ログイン。`ALLOWED_EMAILS` に含まれるメールアドレスだけが使える。`/about`、`/login`、`/auth/*` 以外は、loader / action の先頭で `requireUser` を呼ぶ。
+- **認証**：Google ログイン。`ALLOWED_EMAILS` に含まれるメールアドレスだけが使える。ログインが必要なルートは `app/routes.ts` で `routes/app-layout.tsx` の下に置き（そのミドルウェアがログインを確認する）、loader / action の先頭でも `requireUser(context)` を呼ぶ。ログインなしで開けるのは `/about`、`/login`、`/auth/*`、`/logout` だけ。
 - **入力を少なくする。** 登録はワンタップ。詳細の入力はすべて任意で、あとから書ける形にする。
 - **スマホ優先・日本語。** 幅 375px で横スクロールが出ないこと。日付の「今日」は `Asia/Tokyo` で計算する（Workers は UTC で動く）。
-- **テスト**：Vitest ＋ `@cloudflare/vitest-pool-workers`。外部 API はモックし、秘密情報なしで全テストが通るようにする。
+- **テスト**：Vitest ＋ `@cloudflare/vitest-plugin`（Workers のランタイムの中で、実物の D1 を使う）。外部 API はモックし、秘密情報なしで全テストが通るようにする。画面は、loader の戻り値を渡して HTML 文字列にして確かめる（`test/helpers/render.tsx`）。
+- **サーバー専用のコードは `*.server.ts` に置く。** 画面（ブラウザ側）と共有する定数や型以外の値は、`*.server.ts` に置かない。
 - **デプロイ**：main に push すると、GitHub Actions がテスト → D1 のマイグレーション → `wrangler deploy` を行う。公開 URL は `https://movie-tracker.tanijiri.dev`（Workers のカスタムドメイン）だけで、`workers.dev` とプレビュー用の URL は無効にする。
 
 ## 進め方：まとめて合意し、最後まで実装する
@@ -56,15 +57,29 @@ movie-tracker：見たいと思った映画を忘れず、見るまで・見た�
 
 ## 消してはいけない設定（実際に失敗して入れたもの）
 一見冗長でも「整理」で削らない。理由は docs/TECH_NOTES.md に書く。
-<!-- 失敗から入れた設定が出てきたら、ここに追記する -->
+- **`vite.config.ts` の `server.port: 5183` と `strictPort: true`**：Google に登録したリダイレクト URI と一致させるため。Vite の既定の 5173 に戻すと、ほかのプロジェクトの開発サーバーとぶつかる。
+- **`vitest.config.ts` の `miniflare.bindings` のダミー値**：消すと、テストが `.dev.vars` の実物のトークンを読み込む。
+- **`test/setup.ts` の `fetch` の差し替えと `settleBackgroundTasks()`**：テストから外部に実際に通信しないための仕掛け。後者を消すと、応答のあとに続く処理が、差し替えを外したあとに動いて実際に通信する。
+- **`package.json` の `vitest` のバージョン（4.1 系）**：`@cloudflare/vitest-plugin` が対応している版。上げるときは、プラグインの対応を確認する。
+- **`app/routes.ts` と `app/routes/login.tsx` の `import.meta.env.DEV`**：開発用ログインを本番のビルドに含めないためのもの。`pnpm build` のあと `grep -r dev-login build/` が0件であること。
+- **`.gitignore` の `build/`**：`react-router build` は `build/server/.dev.vars` に秘密情報のコピーを作る。
 
 ## コマンド
-<!-- 開発・実行・テスト・デプロイのコマンドを書く。テストがない場合は、変更後にどう確認するかを書く -->
 ```bash
+pnpm dev                 # 開発サーバー（http://localhost:5183。ポートは固定）
+pnpm check               # 型チェック → lint → テスト → ビルド。変更したら必ず通す
+pnpm test                # テストだけ（test/**/*.test.ts(x)）
+pnpm db:generate         # app/lib/db/schema.ts を変えたら、マイグレーションの SQL を生成する
+pnpm db:migrate:local    # 手元の D1 にマイグレーションを適用する
+pnpm db:migrate:remote   # 本番の D1 に適用する（ふだんは GitHub Actions が行う）
+pnpm run deploy          # 手動でデプロイする（ふだんは main への push で自動）
 ```
+- **ビルドまで通すこと。** 画面側のコードがサーバー専用のファイル（`*.server.ts`）の値を参照していると、開発サーバーとテストでは気づけず、ビルドだけが失敗する。
+- 画面の確認は、開発サーバーの「開発用ログイン」（`/auth/dev-login`）で入って行う。
+- React Router の作法は、インストール済みのドキュメント（`node_modules/react-router/docs/`）で確認する（v8）。
 
 ## デプロイ
-<!-- デプロイ先と方法を一行で書く。手順の詳細は docs/DEPLOY.md に書く -->
+Cloudflare Workers（公開 URL は `https://movie-tracker.tanijiri.dev`）。main に push すると GitHub Actions（`.github/workflows/deploy.yml`）がテスト → D1 のマイグレーション → デプロイを行う。手順の詳細は [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 ## ドキュメントの書き分け
 | 何を | どこに |
