@@ -23,7 +23,7 @@
 		{
 			"binding": "DB",
 			"database_name": "movie-tracker",
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "3d6157b0-04b0-44af-9a48-fe246c4f2f7d",
 			"migrations_dir": "migrations"
 		}
 	],
