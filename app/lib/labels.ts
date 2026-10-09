@@ -24,6 +24,17 @@ export const WATCHED_MEDIUM_LABELS: Record<WatchedMedium, string> = {
   OTHER: "その他",
 };
 
+// 一覧のカードに出す、「どこで見たか」の短いラベル（仕様書 008）。
+export const WATCHED_MEDIUM_BADGES: Record<
+  WatchedMedium,
+  { emoji: string; label: string }
+> = {
+  THEATER: { emoji: "🎬", label: "劇場" },
+  STREAMING: { emoji: "📺", label: "サブスク" },
+  RENTAL: { emoji: "💿", label: "レンタル・購入" },
+  OTHER: { emoji: "📍", label: "その他" },
+};
+
 // Phase 1 の画面で選べる「どこまでなら見たいか」。
 export const SELECTABLE_MEDIUMS = ["THEATER", "STREAMING", "NONE"] as const;
 export type SelectableMedium = (typeof SELECTABLE_MEDIUMS)[number];

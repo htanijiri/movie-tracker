@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { formatMonthDay, formatYmd } from "~/lib/date";
 import type { ListItem } from "~/lib/db/user-movies.server";
 import { formatDiscovery, formatStars } from "~/lib/format";
-import { stateKeyOf, WATCHED_MEDIUM_LABELS } from "~/lib/labels";
+import { stateKeyOf, WATCHED_MEDIUM_BADGES } from "~/lib/labels";
 
 import { Poster } from "./Poster";
 import { StateBadge } from "./StateBadge";
@@ -23,12 +23,14 @@ export function MovieCard({ item, today }: { item: ListItem; today: string }) {
   const state = stateKeyOf(item);
   const discovery = formatDiscovery(item);
   const stars = formatStars(item.rating);
-  const watchedLine = [
-    formatYmd(item.watchedAt),
-    item.watchedPlace || (item.watchedMedium ? WATCHED_MEDIUM_LABELS[item.watchedMedium] : ""),
-  ]
+  // どこで見たか（劇場、サブスクなど）はラベルで出すので、この行は見た日と場所だけにする。
+  const watchedLine = [formatYmd(item.watchedAt), item.watchedPlace ?? ""]
     .filter(Boolean)
     .join(" ・ ");
+  const mediumBadge =
+    state === "watched" && item.watchedMedium
+      ? WATCHED_MEDIUM_BADGES[item.watchedMedium]
+      : null;
 
   return (
     <Link
@@ -43,6 +45,15 @@ export function MovieCard({ item, today }: { item: ListItem; today: string }) {
         <p className="line-clamp-2 text-sm font-bold leading-snug">{item.title}</p>
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <StateBadge state={state} />
+          {mediumBadge && (
+            <span
+              data-watched-medium={item.watchedMedium}
+              className="inline-flex items-center gap-1 rounded-full border border-zinc-600 px-2 py-0.5 text-[11px] font-bold leading-tight text-zinc-200"
+            >
+              <span aria-hidden="true">{mediumBadge.emoji}</span>
+              {mediumBadge.label}
+            </span>
+          )}
           {state === "theater" && (
             <span className="text-xs text-zinc-300" data-release>
               {releaseLabel(item.releaseDate, today)}

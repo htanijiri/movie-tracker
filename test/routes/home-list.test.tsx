@@ -146,8 +146,9 @@ describe("トップページ（/）", () => {
     expect(watchedHtml).toContain('data-state="watched"');
     expect(watchedHtml).toContain("2026/01/09 ・ 映画館X");
     expect(watchedHtml).toContain("★★★★☆");
-    // 場所を書いていない記録では、視聴方法を出す。評価がなければ★は出さない。
-    expect(watchedHtml).toContain("2026/01/08 ・ サブスク配信");
+    // 場所を書いていない記録では、見た日だけを出す（どこで見たかは、ラベルで出す。仕様書 008）。
+    // 評価がなければ★は出さない。
+    expect(watchedHtml).toMatch(/<p[^>]*data-watched-line[^>]*>2026\/01\/08<\/p>/);
     expect(watchedHtml.match(/[★☆]{5}/g)).toHaveLength(1);
   });
 

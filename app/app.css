@@ -28,6 +28,10 @@ body {
   .btn-primary {
     @apply border-amber-400 bg-amber-400 text-zinc-950 hover:bg-amber-300;
   }
+  /* 開閉できる欄の見出しとして使うボタン。開いている間は、選択中の見た目にする。 */
+  details[open] > summary.btn-selectable {
+    @apply border-amber-400 bg-amber-400 text-zinc-950 hover:bg-amber-300;
+  }
   .btn-danger {
     @apply border-red-900 bg-transparent text-red-300 hover:bg-red-950;
   }

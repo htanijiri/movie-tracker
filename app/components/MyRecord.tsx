@@ -34,6 +34,11 @@ type Props = {
   actionData?: ActionResult;
 };
 
+type MyRecordProps = Props & {
+  /** テスト用。「見た」の入力欄を開いた状態で描画する。 */
+  defaultWatchedOpen?: boolean;
+};
+
 /** あるフォームの送信結果（エラーと、入力し直すための値）を取り出す。 */
 function resultFor(
   intent: string,
@@ -75,8 +80,20 @@ function FieldError({ message }: { message?: string }) {
 const chipClass =
   "inline-flex min-h-10 cursor-pointer items-center rounded-full border border-zinc-700 px-3 text-sm text-zinc-200 has-[:checked]:border-amber-400 has-[:checked]:bg-amber-400 has-[:checked]:font-bold has-[:checked]:text-zinc-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-amber-400";
 
-export function MyRecord({ record, today, suggestions, actionData }: Props) {
+export function MyRecord({
+  record,
+  today,
+  suggestions,
+  actionData,
+  defaultWatchedOpen = false,
+}: MyRecordProps) {
   const watched = record?.status === "WATCHED";
+  // 「見た」の入力欄が開いているか。開いている間は「見た」を選択中として見せ、
+  // 3つのボタンの強調を外す（仕様書 008）。開閉は画面の状態だけで、サーバーには送らない。
+  // 入力エラーで戻ってきたときは、開いた状態から始める。
+  const [watchedOpen, setWatchedOpen] = useState(
+    defaultWatchedOpen || (actionData?.intent === "save-watched" && !actionData.ok),
+  );
   return (
     <section aria-labelledby="my-record-title" className="panel">
       <h2 id="my-record-title" className="sr-only">
@@ -92,12 +109,18 @@ export function MyRecord({ record, today, suggestions, actionData }: Props) {
         />
       ) : (
         <>
-          <MediumButtons record={record} />
+          <MediumButtons
+            record={record}
+            suppressed={watchedOpen}
+            onSelect={() => setWatchedOpen(false)}
+          />
           <WatchedForm
             record={record}
             today={today}
             suggestions={suggestions}
             actionData={actionData}
+            open={watchedOpen}
+            onOpenChange={setWatchedOpen}
           />
         </>
       )}
@@ -116,17 +139,31 @@ export function MyRecord({ record, today, suggestions, actionData }: Props) {
   );
 }
 
-/** 「劇場で見たい／サブスクで見たい／見送る」の3つのボタン。押した時点で登録される。 */
-function MediumButtons({ record }: { record: UserMovie | null }) {
+/**
+ * 「劇場で見たい／サブスクで見たい／見送る」の3つのボタン。押した時点で登録される。
+ * 「見た」の入力欄が開いている間（suppressed）は、どのボタンも強調しない。
+ */
+function MediumButtons({
+  record,
+  suppressed,
+  onSelect,
+}: {
+  record: UserMovie | null;
+  suppressed: boolean;
+  /** ボタンが押されたとき（「見た」の入力欄を閉じるために使う）。 */
+  onSelect: () => void;
+}) {
   const fetcher = useFetcher<ActionResult>();
   // 送信中は、押したボタンを先に強調する。
   const pending = fetcher.formData?.get("medium");
   const selected =
     typeof pending === "string"
       ? pending
-      : record && record.status !== "WATCHED"
-        ? record.preferredMedium
-        : null;
+      : suppressed
+        ? null
+        : record && record.status !== "WATCHED"
+          ? record.preferredMedium
+          : null;
 
   return (
     <fetcher.Form method="post">
@@ -142,6 +179,7 @@ function MediumButtons({ record }: { record: UserMovie | null }) {
               name="medium"
               value={medium}
               aria-pressed={pressed}
+              onClick={onSelect}
               // 見た目は途中で改行するが、読み上げでは1つの言葉として伝える。
               aria-label={label}
               className={`btn min-h-16 flex-col gap-0.5 px-1 text-xs leading-tight ${
@@ -323,15 +361,33 @@ function WatchedFields({
   );
 }
 
-/** まだ見ていない映画に、見た記録を付けるフォーム。「見た」を押すと開く。 */
-function WatchedForm({ record, today, suggestions, actionData }: Props) {
+/**
+ * まだ見ていない映画に、見た記録を付けるフォーム。「見た」を押すと開く。
+ * 開いている間は、「見た」を選択中の見た目にする。記録されるのは「保存」を押したとき。
+ */
+function WatchedForm({
+  record,
+  today,
+  suggestions,
+  actionData,
+  open,
+  onOpenChange,
+}: Props & { open: boolean; onOpenChange: (open: boolean) => void }) {
   const fetcher = useFetcher<ActionResult>();
   const { errors, values } = resultFor("save-watched", fetcher.data, actionData);
-  const hasErrors = Object.keys(errors).length > 0;
 
   return (
-    <details className="mt-3" open={hasErrors || undefined}>
-      <summary className="btn w-full cursor-pointer list-none">
+    <details
+      className="mt-3"
+      open={open}
+      onToggle={(event) => onOpenChange(event.currentTarget.open)}
+      data-watched-form
+    >
+      {/* btn-selectable は、JavaScript が動かないときにも、開いている間の強調を CSS で付ける。 */}
+      <summary
+        className={`btn btn-selectable w-full cursor-pointer list-none ${open ? "btn-primary" : ""}`}
+        data-selected={open ? "true" : undefined}
+      >
         <span aria-hidden="true">✅</span> 見た
       </summary>
       <fetcher.Form method="post">
