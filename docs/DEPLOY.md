@@ -28,14 +28,21 @@
 4. 発行後、同じページに表示される **「API Read Access Token」**（`eyJ` で始まる長い文字列）を使う。短い英数字の「API Key」ではない。
 
 ### Google ログイン（OAuth クライアント）
+設定の場所は、Google Cloud コンソールの「Google Auth Platform」（[console.cloud.google.com/auth/overview](https://console.cloud.google.com/auth/overview)。「API とサービス」→「OAuth 同意画面」からも開ける）。メニューの名前は表示言語によって違うので、英語の名前を併記する。
+
 1. [Google Cloud コンソール](https://console.cloud.google.com/) でプロジェクトを作る（既存のものでもよい）。
-2. 「API とサービス」→「OAuth 同意画面」を設定する。対象は「外部」。公開の状態が「テスト」のままなら、「テストユーザー」に自分のメールアドレスを追加する。
-3. 「認証情報」→「認証情報を作成」→「OAuth クライアント ID」。種類は「ウェブ アプリケーション」。
-4. 「承認済みのリダイレクト URI」に、次の2つを登録する（1文字でも違うとログインできない）。
+2. Google Auth Platform で「開始（Get started）」を押し、アプリ名、ユーザーサポートメール、対象（Audience）＝「外部（External）」、連絡先を入力する。
+3. 「対象（Audience）」で、公開ステータスが「テスト中（Testing）」であることを確かめ、「テストユーザー」にログインに使うメールアドレスを追加する。テスト中のままでよい（追加したアカウントだけがログインでき、Google の審査も要らない）。
+4. 「クライアント（Clients）」→「クライアントを作成（Create client）」。種類は「ウェブ アプリケーション」。「承認済みの JavaScript 生成元」は空のままにする。
+5. 「承認済みのリダイレクト URI」に、次の2つを登録する（1文字でも違うとログインできない）。
    - `https://movie-tracker.tanijiri.dev/auth/google/callback`
    - `http://localhost:5183/auth/google/callback`
-5. 発行された「クライアント ID」と「クライアント シークレット」を、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` に設定する。
-6. `ALLOWED_EMAILS` に、ログインを許可する Google アカウントのメールアドレスを設定する。
+6. 作成直後に表示される「クライアント ID」と「クライアント シークレット」を、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` に設定する。**シークレットは作成したときにしか表示されない。** 控える前に閉じてしまった場合は、クライアントの詳細画面でシークレットを新しく追加する。JSON をダウンロードする場合は、プロジェクトのフォルダの外に保存する。
+7. `ALLOWED_EMAILS` に、ログインを許可する Google アカウントのメールアドレスを設定する。
+
+- 「データアクセス（Data Access）」の設定は要らない（受け取るのはメールアドレスと名前だけ）。
+- 設定の反映には、5分から数時間かかることがある。
+- 設定を確かめる方法（ログインはしない）：`curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://movie-tracker.tanijiri.dev/auth/google` が、`302` と `https://accounts.google.com/o/oauth2/v2/auth?...` を返す。`redirect_uri` が上の URI と一致していること。
 
 ### セッションの署名鍵
 ```bash
