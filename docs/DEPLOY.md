@@ -17,7 +17,8 @@
 | `ALLOWED_EMAILS` | このアプリを使ってよいメールアドレス（カンマ区切り） | `.dev.vars` | Workers のシークレット |
 | `SESSION_SECRET` | セッション Cookie の署名鍵 | `.dev.vars` | Workers のシークレット（手元とは別の値） |
 | `CLOUDFLARE_API_TOKEN` | GitHub Actions からデプロイする | — | GitHub のリポジトリのシークレット |
-| `CLOUDFLARE_ACCOUNT_ID` | 同上 | — | GitHub のリポジトリのシークレット |
+
+デプロイ先の Cloudflare アカウントは、`wrangler.jsonc` の `account_id` で決まる（識別子であり秘密情報ではないので、リポジトリに書いている）。アカウント ID をシークレットに登録する必要はない。
 
 手元の設定ファイルは、`.dev.vars.example` をコピーして作る（`.dev.vars` は Git に入らない）。
 
@@ -78,19 +79,15 @@ rm .prod.vars
 1. Cloudflare の管理画面 →「マイプロフィール」→「API トークン」→「トークンを作成」。
 2. テンプレート「Edit Cloudflare Workers（Cloudflare Workers を編集する）」を選ぶ。権限の一覧に **「アカウント / D1 / 編集」** がなければ追加する（D1 の権限がないと、デプロイの前のマイグレーションで失敗する）。
 3. 「アカウント リソース」は対象のアカウントだけ、「ゾーン リソース」は公開 URL のドメインのゾーンだけに絞る。
-4. 作成したトークンと、アカウント ID を、GitHub のリポジトリのシークレットに登録する。値はターミナルで聞かれるので、貼り付けて Enter を押す（コマンドの引数には書かない）。
-   - **アカウント ID の調べ方**：`wrangler.jsonc` の `account_id` と同じ値。管理画面では、ブラウザのアドレス欄の `https://dash.cloudflare.com/` の直後の32文字がアカウント ID。「Workers & Pages」の右側の「アカウントの詳細」にも出るが、画面の幅によっては途中で省略される。
-   - `pnpm exec wrangler whoami` でも表示されるが、**いま wrangler がログインしているアカウントの ID** が出る。複数のアカウントを使い分けている場合は、movie-tracker のアカウントかどうか（`wrangler.jsonc` の `account_id` と一致するか）を必ず確かめる。
+4. 作成したトークンを、GitHub のリポジトリのシークレットに登録する。値はターミナルで聞かれるので、貼り付けて Enter を押す（コマンドの引数には書かない）。
 
 ```bash
 gh secret set CLOUDFLARE_API_TOKEN
 ```
 
-```bash
-gh secret set CLOUDFLARE_ACCOUNT_ID
-```
+登録するまでは、デプロイのジョブは「未登録のためデプロイを行いませんでした」と通知して、失敗にせず終わる。
 
-2つとも登録するまでは、デプロイのジョブは「未登録のためデプロイしませんでした」と通知して、失敗にせず終わる。
+**アカウント ID の調べ方**（`wrangler.jsonc` を作り直すときなど）：管理画面のアドレス欄の `https://dash.cloudflare.com/` の直後の32文字。`pnpm exec wrangler whoami` は「いまログインしているアカウント」の ID を表示するので、複数のアカウントを使い分けている場合は取り違えに注意する。
 
 ## 3. デプロイ
 ### 自動（ふだんはこちら）
