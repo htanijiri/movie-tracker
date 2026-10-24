@@ -9,6 +9,9 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "movie-tracker",
+	// デプロイ先の Cloudflare アカウント（識別子であり、秘密情報ではない）。
+	// wrangler が別のアカウントにログインしているときに、そちらへデプロイしてしまわないよう固定する。
+	"account_id": "972293bf98976081cff319b4bafe1f35",
 	"main": "./workers/app.ts",
 	"compatibility_date": "2026-10-06",
 	"compatibility_flags": ["nodejs_compat"],

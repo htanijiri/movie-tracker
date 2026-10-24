@@ -78,7 +78,9 @@ rm .prod.vars
 1. Cloudflare の管理画面 →「マイプロフィール」→「API トークン」→「トークンを作成」。
 2. テンプレート「Edit Cloudflare Workers（Cloudflare Workers を編集する）」を選ぶ。権限の一覧に **「アカウント / D1 / 編集」** がなければ追加する（D1 の権限がないと、デプロイの前のマイグレーションで失敗する）。
 3. 「アカウント リソース」は対象のアカウントだけ、「ゾーン リソース」は公開 URL のドメインのゾーンだけに絞る。
-4. 作成したトークンと、アカウント ID（管理画面の「Workers & Pages」の右側に表示される）を、GitHub のリポジトリのシークレットに登録する。値はターミナルで聞かれるので、貼り付けて Enter を押す（コマンドの引数には書かない）。
+4. 作成したトークンと、アカウント ID を、GitHub のリポジトリのシークレットに登録する。値はターミナルで聞かれるので、貼り付けて Enter を押す（コマンドの引数には書かない）。
+   - **アカウント ID の調べ方**：`wrangler.jsonc` の `account_id` と同じ値。管理画面では、ブラウザのアドレス欄の `https://dash.cloudflare.com/` の直後の32文字がアカウント ID。「Workers & Pages」の右側の「アカウントの詳細」にも出るが、画面の幅によっては途中で省略される。
+   - `pnpm exec wrangler whoami` でも表示されるが、**いま wrangler がログインしているアカウントの ID** が出る。複数のアカウントを使い分けている場合は、movie-tracker のアカウントかどうか（`wrangler.jsonc` の `account_id` と一致するか）を必ず確かめる。
 
 ```bash
 gh secret set CLOUDFLARE_API_TOKEN
@@ -102,6 +104,8 @@ gh run list --workflow deploy.yml --limit 3
 ```
 
 ### 手動（GitHub Actions が使えないとき）
+`wrangler.jsonc` に `account_id` を固定しているので、wrangler が別のアカウントにログインしていると、デプロイは権限のエラーで止まる（別のアカウントにデプロイされることはない）。その場合は `pnpm exec wrangler login` で、movie-tracker のアカウントにログインし直す。
+
 ```bash
 pnpm check               # 型チェック、lint、テスト、ビルド
 pnpm db:migrate:remote   # データベースの構造に変更があるとき
