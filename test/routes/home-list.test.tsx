@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { releaseLabel } from "~/components/MovieCard";
 import type { SessionUser } from "~/context";
 import { settleBackgroundTasks } from "~/lib/background.server";
 import { todayInTokyo } from "~/lib/date";
@@ -152,18 +151,12 @@ describe("トップページ（/）", () => {
     expect(watchedHtml.match(/[★☆]{5}/g)).toHaveLength(1);
   });
 
-  it("公開前の映画には「M月D日公開」、公開日が未定の映画には「公開日未定」が付く（AC6）", async () => {
-    expect(releaseLabel("2026-03-05", "2026-01-10")).toBe("3月5日公開");
-    expect(releaseLabel(null, "2026-01-10")).toBe("公開日未定");
-    // 公開済み（今日を含む）の映画には、公開日を出す。
-    expect(releaseLabel("2026-01-10", "2026-01-10")).toBe("2026/01/10 公開");
-    expect(releaseLabel("2025-12-01", "2026-01-10")).toBe("2025/12/01 公開");
-
+  it("劇場で見たいのカードに、公開日についての表示が出る（AC6。仕様書 010・011 で文言を変更）", async () => {
     const user = await createUser();
     await add(user, 1, theater, { releaseDate: "2999-03-05" });
     await add(user, 2, theater, { releaseDate: null });
     const html = sectionOf(renderHome(await loadHome(user)), "theater");
-    expect(html).toContain("3月5日公開");
+    expect(html).toContain("2999年3月5日公開");
     expect(html).toContain("公開日未定");
   });
 

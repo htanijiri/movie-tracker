@@ -1,5 +1,8 @@
 import { createRequestHandler } from "react-router";
 
+import { getDb } from "../app/lib/db/client.server";
+import { runStreamingCheck } from "../app/lib/streaming.server";
+
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
   import.meta.env.MODE,
@@ -44,5 +47,14 @@ export default {
       statusText: response.statusText,
       headers,
     });
+  },
+
+  // 定期実行（wrangler.jsonc の triggers.crons）。配信開始チェック（仕様書 009）。
+  async scheduled(controller, _env, ctx) {
+    ctx.waitUntil(
+      runStreamingCheck(getDb(), new Date(controller.scheduledTime)).then((result) => {
+        console.log("配信開始チェック:", JSON.stringify(result));
+      }),
+    );
   },
 } satisfies ExportedHandler<Env>;

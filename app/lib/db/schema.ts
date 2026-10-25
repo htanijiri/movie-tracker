@@ -64,6 +64,8 @@ export const movies = sqliteTable("movies", {
   originalTitle: text("original_title"),
   releaseDate: text("release_date"),
   posterPath: text("poster_path"),
+  // TMDb のジャンル ID の配列（おすすめの計算に使う。仕様書 012）。まだ取得していなければ NULL。
+  genreIds: text("genre_ids", { mode: "json" }).$type<number[]>(),
   fetchedAt: text("fetched_at").notNull(),
 });
 
@@ -124,6 +126,52 @@ export const userMovies = sqliteTable(
   ],
 );
 
+/** 配信状況のうち、「配信開始」の判定とカードの表示に使うもの（見放題と無料）。 */
+export type StreamingProvider = {
+  id: number;
+  name: string;
+  logoPath: string | null;
+  type: "flatrate" | "free";
+};
+
+// 映画ごとの、前回確認した日本の配信状況（仕様書 009）。定期実行で更新し、差分から配信開始を見つける。
+// TMDb のデータなので、確認の対象から外れて古くなったものは消す（refreshStaleSnapshots）。
+export const movieProviders = sqliteTable("movie_providers", {
+  tmdbId: integer("tmdb_id")
+    .primaryKey()
+    .references(() => movies.tmdbId, { onDelete: "cascade" }),
+  providers: text("providers", { mode: "json" }).$type<StreamingProvider[]>().notNull(),
+  checkedAt: text("checked_at").notNull(),
+});
+
+// 配信開始のお知らせ（仕様書 009）。利用者・映画・サービスごとに1つ。
+export const streamingNotices = sqliteTable(
+  "streaming_notices",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id")
+      .notNull()
+      .references(() => movies.tmdbId, { onDelete: "cascade" }),
+    providerId: integer("provider_id").notNull(),
+    providerName: text("provider_name").notNull(),
+    detectedAt: text("detected_at").notNull(),
+    dismissedAt: text("dismissed_at"),
+  },
+  (t) => [
+    uniqueIndex("streaming_notices_user_movie_provider_unique").on(
+      t.userId,
+      t.tmdbId,
+      t.providerId,
+    ),
+    index("streaming_notices_user_dismissed_idx").on(t.userId, t.dismissedAt),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Movie = typeof movies.$inferSelect;
 export type UserMovie = typeof userMovies.$inferSelect;
+export type MovieProviders = typeof movieProviders.$inferSelect;
+export type StreamingNotice = typeof streamingNotices.$inferSelect;

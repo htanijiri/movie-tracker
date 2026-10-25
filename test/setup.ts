@@ -20,6 +20,8 @@ beforeAll(async () => {
 beforeEach(async () => {
   // テストどうしが影響しないよう、毎回すべての行を消す（子テーブルから順に）。
   await testEnv.DB.batch([
+    testEnv.DB.prepare("DELETE FROM streaming_notices"),
+    testEnv.DB.prepare("DELETE FROM movie_providers"),
     testEnv.DB.prepare("DELETE FROM user_movies"),
     testEnv.DB.prepare("DELETE FROM movies"),
     testEnv.DB.prepare("DELETE FROM users"),

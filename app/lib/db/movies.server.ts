@@ -9,7 +9,7 @@ import {
 import type { MovieSummary } from "~/lib/tmdb/types";
 
 import type { Db } from "./client.server";
-import { movies, userMovies } from "./schema";
+import { movieProviders, movies, userMovies } from "./schema";
 
 /**
  * 映画のスナップショット（一覧で使う最小限の情報）を保存する。すでにあれば上書きする。
@@ -22,21 +22,15 @@ export async function upsertMovieSnapshot(db: Db, movie: MovieSummary): Promise<
     originalTitle: movie.originalTitle,
     releaseDate: movie.releaseDate,
     posterPath: movie.posterPath,
+    // ジャンルが分からない応答のときは、保存済みのジャンルを消さない。
+    ...(movie.genreIds ? { genreIds: movie.genreIds } : {}),
     fetchedAt: nowIso(),
   };
+  const { tmdbId: _key, ...update } = values;
   await db
     .insert(movies)
     .values(values)
-    .onConflictDoUpdate({
-      target: movies.tmdbId,
-      set: {
-        title: values.title,
-        originalTitle: values.originalTitle,
-        releaseDate: values.releaseDate,
-        posterPath: values.posterPath,
-        fetchedAt: values.fetchedAt,
-      },
-    });
+    .onConflictDoUpdate({ target: movies.tmdbId, set: update });
 }
 
 /**
@@ -85,6 +79,10 @@ export async function refreshStaleSnapshots(db: Db, now: Date = new Date()): Pro
         ),
       ),
     );
+
+  // 配信状況は、配信開始チェックの対象なら毎日更新される。30日を超えて残っているのは、
+  // 対象から外れた映画のものなので消す（TMDb のデータを持ち続けない）。
+  await db.delete(movieProviders).where(lt(movieProviders.checkedAt, threshold));
 
   const targets = await db
     .select({ tmdbId: movies.tmdbId })

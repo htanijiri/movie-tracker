@@ -8,6 +8,12 @@ export type MovieSummary = {
   /** 日本での公開日（YYYY-MM-DD）。未定なら null。 */
   releaseDate: string | null;
   posterPath: string | null;
+  /** TMDb のジャンル ID。一覧の応答・詳細の応答から取れたときだけ入る（おすすめの計算に使う）。 */
+  genreIds?: number[];
+  /** 原語（"ja" など）。一覧の応答から取れたときだけ入る（おすすめの邦画・洋画の絞り込みに使う）。 */
+  originalLanguage?: string | null;
+  /** TMDb の注目度。一覧の応答から取れたときだけ入る。 */
+  popularity?: number;
 };
 
 export type MovieListPage = {
@@ -41,6 +47,7 @@ export type WatchProviders = {
 };
 
 export type MovieDetail = MovieSummary & {
+  genreIds: number[];
   overview: string | null;
   /** 上映時間（分）。 */
   runtime: number | null;

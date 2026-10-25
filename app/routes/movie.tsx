@@ -1,5 +1,6 @@
 import { data, isRouteErrorResponse, Link } from "react-router";
 
+import { ReleaseLabel } from "~/components/MovieCard";
 import { MyRecord, type ActionResult } from "~/components/MyRecord";
 import { Poster } from "~/components/Poster";
 import { TrailerPlayer } from "~/components/TrailerPlayer";
@@ -18,6 +19,7 @@ import {
   unwatch,
 } from "~/lib/db/user-movies.server";
 import { formatRuntime } from "~/lib/format";
+import { releaseStatus } from "~/lib/release";
 import { SITE_NAME, TMDB_ERROR_MESSAGE } from "~/lib/site";
 import {
   getMovieDetail,
@@ -139,6 +141,11 @@ export default function MovieDetailPage({ loaderData, actionData }: Route.Compon
     formatYmd(movie.releaseDate) ? `${formatYmd(movie.releaseDate)} 公開` : "公開日未定",
     formatRuntime(movie.runtime),
   ].filter(Boolean);
+  // 「劇場で見たい」の映画にだけ、公開までの近さ・公開からの週数を出す（仕様書 010・011）。
+  const theaterRelease =
+    record?.status === "WANT_TO_WATCH" && record.preferredMedium === "THEATER" && movie.releaseDate
+      ? releaseStatus(movie.releaseDate, today)
+      : null;
 
   return (
     <article>
@@ -164,6 +171,11 @@ export default function MovieDetailPage({ loaderData, actionData }: Route.Compon
             </p>
           )}
           <p className="mt-2 text-sm text-zinc-300">{facts.join(" ・ ")}</p>
+          {theaterRelease && (
+            <p className="mt-1">
+              <ReleaseLabel status={theaterRelease} />
+            </p>
+          )}
           {movie.genres.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1" aria-label="ジャンル">
               {movie.genres.map((genre) => (

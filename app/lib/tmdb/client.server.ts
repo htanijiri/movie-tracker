@@ -86,6 +86,9 @@ type TmdbMovie = {
   original_title?: string;
   release_date?: string;
   poster_path?: string | null;
+  genre_ids?: number[];
+  original_language?: string;
+  popularity?: number;
 };
 
 type TmdbList = {
@@ -103,6 +106,11 @@ function toSummary(movie: TmdbMovie): MovieSummary {
     releaseDate:
       movie.release_date && isValidYmd(movie.release_date) ? movie.release_date : null,
     posterPath: movie.poster_path || null,
+    ...(Array.isArray(movie.genre_ids) ? { genreIds: movie.genre_ids } : {}),
+    ...(movie.original_language !== undefined
+      ? { originalLanguage: movie.original_language || null }
+      : {}),
+    ...(typeof movie.popularity === "number" ? { popularity: movie.popularity } : {}),
   };
 }
 
@@ -183,7 +191,7 @@ type TmdbDetail = TmdbMovie & {
   overview?: string;
   runtime?: number | null;
   backdrop_path?: string | null;
-  genres?: { name?: string }[];
+  genres?: { id?: number; name?: string }[];
   videos?: { results?: Parameters<typeof pickTrailer>[0] };
   release_dates?: {
     results?: {
@@ -229,8 +237,14 @@ function toProviders(...groups: (TmdbProvider[] | undefined)[]): Provider[] {
     .map(({ id, name, logoPath }) => ({ id, name, logoPath }));
 }
 
+type TmdbWatchProviders = NonNullable<TmdbDetail["watch/providers"]>;
+
 function toWatchProviders(detail: TmdbDetail): WatchProviders | null {
-  const jp = detail["watch/providers"]?.results?.JP;
+  return toJapanProviders(detail["watch/providers"]);
+}
+
+function toJapanProviders(watch: TmdbWatchProviders | undefined): WatchProviders | null {
+  const jp = watch?.results?.JP;
   if (!jp) return null;
   const providers: WatchProviders = {
     link: jp.link ?? null,
@@ -287,6 +301,9 @@ export async function getMovieDetail(tmdbId: number): Promise<MovieDetail> {
   return {
     ...summary,
     releaseDate: japanReleaseDate(detail) ?? summary.releaseDate,
+    genreIds: (detail.genres ?? [])
+      .map((g) => g.id)
+      .filter((id): id is number => typeof id === "number"),
     overview: detail.overview || null,
     runtime: detail.runtime && detail.runtime > 0 ? detail.runtime : null,
     genres: (detail.genres ?? []).map((g) => g.name).filter((n): n is string => !!n),
@@ -296,4 +313,37 @@ export async function getMovieDetail(tmdbId: number): Promise<MovieDetail> {
     trailer: pickTrailer(detail.videos?.results),
     providers: toWatchProviders(detail),
   };
+}
+
+/** 日本の配信状況だけを取得する（定期実行の配信開始チェックで使う。仕様書 009）。情報がなければ null。 */
+export async function getWatchProviders(tmdbId: number): Promise<WatchProviders | null> {
+  const watch = await tmdbGet<TmdbWatchProviders>(`/movie/${tmdbId}/watch/providers`);
+  return toJapanProviders(watch);
+}
+
+/**
+ * 日本で見放題（定額）か無料で見られる映画（おすすめの候補。仕様書 012）。
+ * originalLanguage を渡すと、その原語の映画に絞る。
+ */
+export async function listStreaming(
+  page = 1,
+  originalLanguage?: string,
+): Promise<MovieListPage> {
+  const p = clampPage(page);
+  const list = await tmdbGet<TmdbList>("/discover/movie", {
+    watch_region: "JP",
+    with_watch_monetization_types: "flatrate|free|ads",
+    "vote_count.gte": 30,
+    sort_by: "popularity.desc",
+    include_adult: false,
+    ...(originalLanguage ? { with_original_language: originalLanguage } : {}),
+    page: p,
+  });
+  return toListPage(list, p);
+}
+
+/** ある映画の関連作品（おすすめの根拠に使う。仕様書 012）。 */
+export async function listRecommendations(tmdbId: number): Promise<MovieListPage> {
+  const list = await tmdbGet<TmdbList>(`/movie/${tmdbId}/recommendations`, { page: 1 });
+  return toListPage(list, 1);
 }

@@ -1,18 +1,35 @@
 import { Link } from "react-router";
 
-import { formatMonthDay, formatYmd } from "~/lib/date";
+import { formatYmd } from "~/lib/date";
 import type { ListItem } from "~/lib/db/user-movies.server";
 import { formatDiscovery, formatStars } from "~/lib/format";
 import { stateKeyOf, WATCHED_MEDIUM_BADGES } from "~/lib/labels";
+import { releaseStatus, type ReleaseStatus } from "~/lib/release";
 
 import { Poster } from "./Poster";
 import { StateBadge } from "./StateBadge";
 
-/** 劇場で見たい映画に付ける、公開日の説明。 */
-export function releaseLabel(releaseDate: string | null, today: string): string {
-  if (!releaseDate) return "公開日未定";
-  if (releaseDate > today) return `${formatMonthDay(releaseDate)}公開`;
-  return `${formatYmd(releaseDate)} 公開`;
+/** 公開日についての表示（「公開3週目」「来週公開（10/30）」など）。仕様書 010・011。 */
+export function ReleaseLabel({ status }: { status: ReleaseStatus }) {
+  return (
+    <span
+      data-release
+      data-release-warning={status.warning ? "true" : undefined}
+      className={
+        status.warning
+          ? "rounded bg-red-950 px-1.5 py-0.5 text-xs font-bold text-red-300"
+          : "text-xs text-zinc-300"
+      }
+    >
+      {status.label}
+    </span>
+  );
+}
+
+/** サービス名を3つまで並べ、超えたら「ほか」を付ける。 */
+export function formatProviderNames(names: string[]): string {
+  const shown = names.slice(0, 3).join("、");
+  return names.length > 3 ? `${shown} ほか` : shown;
 }
 
 /**
@@ -27,6 +44,11 @@ export function MovieCard({ item, today }: { item: ListItem; today: string }) {
   const watchedLine = [formatYmd(item.watchedAt), item.watchedPlace ?? ""]
     .filter(Boolean)
     .join(" ・ ");
+  // 「サブスク待ち」「劇場で見たい」の映画が、いま見放題・無料で見られるか（仕様書 009）。
+  const streamingNow =
+    (state === "theater" || state === "streaming") && item.streamingProviders?.length
+      ? formatProviderNames(item.streamingProviders.map((p) => p.name))
+      : null;
   const mediumBadge =
     state === "watched" && item.watchedMedium
       ? WATCHED_MEDIUM_BADGES[item.watchedMedium]
@@ -55,9 +77,7 @@ export function MovieCard({ item, today }: { item: ListItem; today: string }) {
             </span>
           )}
           {state === "theater" && (
-            <span className="text-xs text-zinc-300" data-release>
-              {releaseLabel(item.releaseDate, today)}
-            </span>
+            <ReleaseLabel status={releaseStatus(item.releaseDate, today)} />
           )}
         </p>
         {state === "watched" && (
@@ -68,6 +88,11 @@ export function MovieCard({ item, today }: { item: ListItem; today: string }) {
                 {stars}
               </span>
             )}
+          </p>
+        )}
+        {streamingNow && (
+          <p className="mt-1 text-xs font-bold text-sky-300" data-streaming-now>
+            <span aria-hidden="true">📺</span> 配信中：{streamingNow}
           </p>
         )}
         {discovery && (

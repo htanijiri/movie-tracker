@@ -7,8 +7,10 @@ import type { DiscoveryValues, WatchedValues } from "~/lib/validation";
 
 import type { Db } from "./client.server";
 import {
+  movieProviders,
   movies,
   userMovies,
+  type StreamingProvider,
   type DiscoveryType,
   type PreferredMedium,
   type Status,
@@ -249,6 +251,7 @@ const listColumns = {
   watchedMedium: userMovies.watchedMedium,
   watchedPlace: userMovies.watchedPlace,
   rating: userMovies.rating,
+  streamingProviders: movieProviders.providers,
 };
 
 /** 一覧に出す1本ぶんの情報。タイトルやポスターは、保存済みのスナップショットから取る（TMDb を呼ばない）。 */
@@ -267,13 +270,16 @@ export type ListItem = {
   watchedMedium: WatchedMedium | null;
   watchedPlace: string | null;
   rating: number | null;
+  /** 前回確認した配信状況（見放題・無料のサービス）。まだ確認していなければ null（仕様書 009）。 */
+  streamingProviders: StreamingProvider[] | null;
 };
 
 function listQuery(db: Db, userId: string, filter: ListFilter) {
   const base = db
     .select(listColumns)
     .from(userMovies)
-    .innerJoin(movies, eq(userMovies.tmdbId, movies.tmdbId));
+    .innerJoin(movies, eq(userMovies.tmdbId, movies.tmdbId))
+    .leftJoin(movieProviders, eq(movieProviders.tmdbId, userMovies.tmdbId));
   const mine = eq(userMovies.userId, userId);
 
   switch (filter) {

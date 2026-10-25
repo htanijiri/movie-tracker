@@ -36,6 +36,7 @@ export async function createMovie(overrides: Partial<Movie> = {}): Promise<Movie
     originalTitle: "Movie A",
     releaseDate: "2026-01-10",
     posterPath: "/poster-a.jpg",
+    genreIds: null,
     fetchedAt: new Date().toISOString(),
     ...overrides,
   };
