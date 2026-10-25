@@ -23,6 +23,23 @@
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/journal-stop.sh",
             "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "あなたは、Claude Code が作業を終えるときの最終応答を確認する係です。入力（JSON）：$ARGUMENTS\n\nstop_hook_active が true のときは、内容にかかわらず {\"ok\": true} と答えてください（すでに一度差し戻しているため）。\n\nlast_assistant_message を読み、Claude がユーザー（人間）に操作や作業を頼んでいる箇所を探してください。\nユーザーに頼んでよいのは、次のどれかに当たる作業だけです。\n1. ログイン・本人確認（二段階認証など）\n2. 秘密情報（パスワード、API トークン、接続文字列など）の作成と入力。ただし、アカウント ID・URL・リージョン・設定値のような秘密でない値の調査や登録は Claude ができる\n3. 支払い・契約・規約への同意\n4. 実機や、Claude が操作できない機器・画面での操作と確認\n5. 見た目や使い心地など、人間にしか判断できない確認\n\n次のものは「作業の依頼」に含めません：Claude が実施したことの報告、方針や仕様についての質問、Claude が実施してよいかの許可の確認（コミット・push・取り消せない操作など）、確認結果を教えてほしいというお願い（上の 4・5 の確認の結果）。\n\n判定：\n- 依頼がない、または依頼がすべて 1〜5 に当たる → {\"ok\": true}\n- コマンドの実行、ファイルの編集、値の調べもの、git や gh の操作、デプロイ、秘密でない値の登録など、1〜5 に当たらない作業をユーザーに頼んでいる → {\"ok\": false, \"reason\": \"...\"}\n\nreason には、該当する依頼を引用し、「この作業は Claude 自身で実施してください。ユーザーにしかできない場合は、その理由を応答に書き足してください」と日本語で書いてください。\n\nJSON だけで答えてください。",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/spec-status-check.sh",
+            "timeout": 10
           }
         ]
       }
