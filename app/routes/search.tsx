@@ -256,7 +256,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
                   {formatYmd(movie.releaseDate) || "公開日未定"}
                 </p>
                 {movie.reason && (
-                  <p className="mt-0.5 line-clamp-3 text-[11px] leading-snug text-amber-300" data-reason>
+                  <p className="mt-0.5 line-clamp-4 text-[11px] leading-snug text-amber-300" data-reason>
                     {movie.reason}
                   </p>
                 )}

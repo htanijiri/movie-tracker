@@ -26,11 +26,21 @@ export const MIN_SIGNALS = 3;
 /** 候補を取得するページ数。 */
 const CANDIDATE_PAGES = 3;
 /** 関連作品を取得する、★の高い見た映画の本数。 */
-const RELATED_SOURCES = 3;
+const RELATED_SOURCES = 5;
 /** 1回の表示で、ジャンルの分からない記録を補う本数。 */
-const GENRE_FILL = 4;
+const GENRE_FILL = 2;
 /** 関連作品1つあたりの加点。 */
-const RELATED_BONUS = 2;
+const RELATED_BONUS = 3;
+/** 候補のうち、この割合以上の映画に付いているジャンルは「ありふれたジャンル」として、理由にしない。 */
+const COMMON_GENRE_RATIO = 0.3;
+/**
+ * 候補の中での割合に関係なく、半数の候補に付いているものとして扱うジャンル（ドラマ）。
+ * TMDb では映画の半数近くに付くが、配信中の人気作のように SF やアクションに偏った候補では3割を切り、
+ * それだけで理由になってしまうため。
+ */
+const BROAD_GENRES = new Set([18]);
+/** 理由に出すジャンルの数。 */
+const REASON_GENRES = 2;
 
 export type TasteRecord = {
   tmdbId: number;
@@ -53,37 +63,54 @@ export function recordWeight(record: Pick<TasteRecord, "status" | "preferredMedi
   return 0;
 }
 
-type GenreTaste = {
-  weight: number;
-  /** そのジャンルで、★がいちばん高い（★4以上の）見た映画。理由の表示に使う。 */
-  best: { title: string; rating: number } | null;
-};
+/** ★4以上の見た映画。理由の表示に使う。 */
+export type LikedMovie = { title: string; rating: number; genreIds: number[] };
 
 export type TasteProfile = {
-  genres: Map<number, GenreTaste>;
+  /** ジャンルごとの好みの重み。 */
+  genres: Map<number, number>;
+  /** ★4以上の見た映画（★の高い順）。 */
+  liked: LikedMovie[];
   /** 好みの手がかりになった記録の本数（重みが0でなく、ジャンルが分かるもの）。 */
   signals: number;
 };
 
 export function buildTasteProfile(records: TasteRecord[]): TasteProfile {
-  const genres = new Map<number, GenreTaste>();
+  const genres = new Map<number, number>();
+  const liked: LikedMovie[] = [];
   let signals = 0;
   for (const record of records) {
     const weight = recordWeight(record);
     if (weight === 0 || !record.genreIds?.length) continue;
     signals += 1;
-    for (const id of record.genreIds) {
-      const taste = genres.get(id) ?? { weight: 0, best: null };
-      taste.weight += weight;
-      if (record.status === "WATCHED" && record.rating && record.rating >= 4) {
-        if (!taste.best || record.rating > taste.best.rating) {
-          taste.best = { title: record.title, rating: record.rating };
-        }
-      }
-      genres.set(id, taste);
+    for (const id of record.genreIds) genres.set(id, (genres.get(id) ?? 0) + weight);
+    if (record.status === "WATCHED" && record.rating && record.rating >= 4) {
+      liked.push({ title: record.title, rating: record.rating, genreIds: record.genreIds });
     }
   }
-  return { genres, signals };
+  liked.sort((a, b) => b.rating - a.rating);
+  return { genres, liked, signals };
+}
+
+/**
+ * 候補の中での、ジャンルの珍しさ。候補 N 本のうち df 本に付いているジャンルは ln((N+1)/(df+1))。
+ * すべての候補に付いているジャンルは 0 になり、点数にも理由にも効かない。
+ * BROAD_GENRES は df を N/2 以上として扱う。
+ */
+export function genreRarity(pool: MovieSummary[]): { idf: Map<number, number>; common: Set<number> } {
+  const df = new Map<number, number>();
+  for (const movie of pool) {
+    for (const id of new Set(movie.genreIds ?? [])) df.set(id, (df.get(id) ?? 0) + 1);
+  }
+  const n = pool.length;
+  const idf = new Map<number, number>();
+  const common = new Set<number>();
+  for (const [id, found] of df) {
+    const count = BROAD_GENRES.has(id) ? Math.max(found, n / 2) : found;
+    idf.set(id, Math.log((n + 1) / (count + 1)));
+    if (count / n >= COMMON_GENRE_RATIO) common.add(id);
+  }
+  return { idf, common };
 }
 
 export type Related = Map<number, { title: string; rating: number }[]>;
@@ -92,6 +119,36 @@ export type Recommendation = MovieSummary & {
   reason: string | null;
   score: number;
 };
+
+/**
+ * 「★5の「映画A」と同じ「SF・アドベンチャー」」の理由を作る。★4以上の見た映画のうち、
+ * 候補と重なる「ありふれていない、好きなジャンル」の珍しさの合計が最大のものを選ぶ。
+ * 重なりがありふれたジャンルだけなら null。
+ */
+function genreReason(
+  genreIds: number[],
+  profile: TasteProfile,
+  idf: Map<number, number>,
+  common: Set<number>,
+): string | null {
+  const eligible = genreIds.filter(
+    (id) => !common.has(id) && (profile.genres.get(id) ?? 0) > 0 && genreName(id) !== null,
+  );
+  let best: { movie: LikedMovie; shared: number[]; rarity: number } | null = null;
+  // liked は★の高い順なので、珍しさが同じなら★の高い映画が残る。
+  for (const movie of profile.liked) {
+    const shared = eligible.filter((id) => movie.genreIds.includes(id));
+    const rarity = shared.reduce((sum, id) => sum + (idf.get(id) ?? 0), 0);
+    if (rarity > 0 && (!best || rarity > best.rarity)) best = { movie, shared, rarity };
+  }
+  if (!best) return null;
+  const names = [...best.shared]
+    .sort((a, b) => (idf.get(b) ?? 0) - (idf.get(a) ?? 0))
+    .slice(0, REASON_GENRES)
+    .map((id) => genreName(id))
+    .join("・");
+  return `★${best.movie.rating}の「${best.movie.title}」と同じ「${names}」`;
+}
 
 /** 候補に点数を付け、好みに合う順に並べる。自分のリストにある映画は除く。 */
 export function scoreCandidates(
@@ -106,6 +163,7 @@ export function scoreCandidates(
     seen.add(c.tmdbId);
     return true;
   });
+  const { idf, common } = genreRarity(pool);
 
   // 人気の順位（同点を崩すための小さな加点に使う）。
   const byPopularity = [...pool].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
@@ -116,27 +174,18 @@ export function scoreCandidates(
   const scored = pool.map((candidate) => {
     const genreIds = candidate.genreIds ?? [];
     let genreScore = 0;
-    let bestGenre: { id: number; taste: GenreTaste } | null = null;
-    for (const id of genreIds) {
-      const taste = profile.genres.get(id);
-      if (!taste) continue;
-      genreScore += taste.weight;
-      if (taste.best && taste.weight > 0 && (!bestGenre || taste.best.rating > (bestGenre.taste.best?.rating ?? 0) || (taste.best.rating === bestGenre.taste.best?.rating && taste.weight > bestGenre.taste.weight))) {
-        bestGenre = { id, taste };
-      }
-    }
+    for (const id of genreIds) genreScore += (profile.genres.get(id) ?? 0) * (idf.get(id) ?? 0);
     if (genreIds.length > 0) genreScore /= Math.sqrt(genreIds.length);
 
     const sources = related.get(candidate.tmdbId) ?? [];
     const score = genreScore + RELATED_BONUS * sources.length + tieBreaker(candidate);
 
-    let reason: string | null = null;
+    let reason: string | null;
     if (sources.length > 0) {
       const top = [...sources].sort((a, b) => b.rating - a.rating)[0];
       reason = `「${top.title}」（★${top.rating}）の関連作品`;
-    } else if (bestGenre?.taste.best) {
-      const name = genreName(bestGenre.id);
-      if (name) reason = `★${bestGenre.taste.best.rating}の「${bestGenre.taste.best.title}」と同じ「${name}」`;
+    } else {
+      reason = genreReason(genreIds, profile, idf, common);
     }
     return { ...candidate, score, reason };
   });
@@ -170,7 +219,7 @@ export type RecommendResult = {
 };
 
 /**
- * おすすめを作る。1回の表示で TMDb を呼ぶのは、候補3回・関連作品3回・ジャンルの補完4回までの10回。
+ * おすすめを作る。1回の表示で TMDb を呼ぶのは、候補3回・関連作品5回・ジャンルの補完2回までの10回。
  * TMDb が応答しないときは TmdbError を投げる。
  */
 export async function loadRecommendations(
