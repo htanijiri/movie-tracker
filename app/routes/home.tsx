@@ -2,6 +2,7 @@ import { data, Link } from "react-router";
 
 import { EmptyState, MovieCard } from "~/components/MovieCard";
 import { NoticeList } from "~/components/NoticeList";
+import { TrailerHuntList } from "~/components/TrailerHuntList";
 import { requireUser } from "~/context";
 import { runInBackground } from "~/lib/background.server";
 import { todayInTokyo } from "~/lib/date";
@@ -13,6 +14,7 @@ import {
   dismissStreamingNotice,
   listStreamingNotices,
 } from "~/lib/streaming.server";
+import { listOpenTrailerHunts } from "~/lib/trailers.server";
 
 import type { Route } from "./+types/home";
 
@@ -24,13 +26,14 @@ export function meta() {
 export async function loader({ context }: Route.LoaderArgs) {
   const user = requireUser(context);
   const db = getDb();
-  const [lists, notices] = await Promise.all([
+  const [lists, notices, hunts] = await Promise.all([
     listForHome(db, user.id),
     listStreamingNotices(db, user.id),
+    listOpenTrailerHunts(db, user.id),
   ]);
   // 古くなった映画の情報を、応答を返したあとに少しずつ取り直す（画面の表示は待たせない）。
   runInBackground(refreshStaleSnapshots(db));
-  return { ...lists, notices, today: todayInTokyo() };
+  return { ...lists, notices, hunts, today: todayInTokyo() };
 }
 
 // 配信開始のお知らせの「確認した」（仕様書 009）。
@@ -86,12 +89,13 @@ function Section({
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { theater, streaming, watched, hasMoreWatched, notices, today } = loaderData;
+  const { theater, streaming, watched, hasMoreWatched, notices, hunts, today } = loaderData;
   return (
     <div>
       <h1 className="text-xl font-bold">次に何を見る？</h1>
 
       <NoticeList notices={notices} />
+      <TrailerHuntList hunts={hunts} />
 
       <Section id="theater" emoji="🎬" title="劇場で見たい" items={theater} today={today} />
       <Section id="streaming" emoji="📺" title="サブスク待ち" items={streaming} today={today} />

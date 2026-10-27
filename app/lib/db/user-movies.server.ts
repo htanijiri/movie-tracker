@@ -9,6 +9,7 @@ import type { Db } from "./client.server";
 import {
   movieProviders,
   movies,
+  trailerFinds,
   userMovies,
   type StreamingProvider,
   type DiscoveryType,
@@ -91,9 +92,15 @@ export async function removeUserMovie(
   userId: string,
   tmdbId: number,
 ): Promise<void> {
-  await db
-    .delete(userMovies)
-    .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, tmdbId)));
+  await db.batch([
+    db
+      .delete(userMovies)
+      .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, tmdbId))),
+    // その映画を見たときの「予告を探す」の記録も消す（仕様書 013）。
+    db
+      .delete(trailerFinds)
+      .where(and(eq(trailerFinds.userId, userId), eq(trailerFinds.visitTmdbId, tmdbId))),
+  ]);
 }
 
 /** きっかけを保存する。未登録の映画には保存できない（false を返す）。 */
@@ -136,6 +143,7 @@ export async function saveWatched(
     watchedPlace: values.place,
     rating: values.rating,
     review: values.review,
+    trailerCount: values.trailerCount,
     updatedAt: now,
   };
   await db
@@ -167,18 +175,26 @@ export async function unwatch(db: Db, userId: string, tmdbId: number): Promise<v
     await removeUserMovie(db, userId, tmdbId);
     return;
   }
-  await db
-    .update(userMovies)
-    .set({
-      status: record.preferredMedium === "NONE" ? "SKIPPED" : "WANT_TO_WATCH",
-      watchedAt: null,
-      watchedMedium: null,
-      watchedPlace: null,
-      rating: null,
-      review: null,
-      updatedAt: nowIso(),
-    })
-    .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, tmdbId)));
+  await db.batch([
+    db
+      .update(userMovies)
+      .set({
+        status: record.preferredMedium === "NONE" ? "SKIPPED" : "WANT_TO_WATCH",
+        watchedAt: null,
+        watchedMedium: null,
+        watchedPlace: null,
+        rating: null,
+        review: null,
+        trailerCount: null,
+        trailerHuntClosedAt: null,
+        updatedAt: nowIso(),
+      })
+      .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, tmdbId))),
+    // 見た記録を取り消したら、そのときの「予告を探す」の記録も消す（仕様書 013）。
+    db
+      .delete(trailerFinds)
+      .where(and(eq(trailerFinds.userId, userId), eq(trailerFinds.visitTmdbId, tmdbId))),
+  ]);
 }
 
 const MAX_SUGGESTIONS = 10;

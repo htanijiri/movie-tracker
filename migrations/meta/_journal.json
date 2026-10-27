@@ -15,6 +15,13 @@
       "when": 1792911116264,
       "tag": "0001_streaming_and_genres",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793098363798,
+      "tag": "0002_trailer_hunt",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@ import type {
   MovieListPage,
   MovieSummary,
   Provider,
+  Trailer,
   WatchProviders,
 } from "./types";
 
@@ -346,4 +347,34 @@ export async function listStreaming(
 export async function listRecommendations(tmdbId: number): Promise<MovieListPage> {
   const list = await tmdbGet<TmdbList>(`/movie/${tmdbId}/recommendations`, { page: 1 });
   return toListPage(list, 1);
+}
+
+/** 予告探しの候補の範囲：見た日の何日前から何日後までに公開（予定）の映画か（仕様書 013）。 */
+export const TRAILER_WINDOW = { before: 30, after: 183 } as const;
+
+/**
+ * 予告探しの候補（仕様書 013）。見た日の1か月前から半年後までに、日本で劇場公開（予定）の映画を注目度順に。
+ * その日に映画館で予告が流れていそうな映画を、上映スケジュールのデータがない中で近似する。
+ */
+export async function listTrailerCandidates(visitDate: string, page = 1): Promise<MovieListPage> {
+  const p = clampPage(page);
+  const list = await tmdbGet<TmdbList>("/discover/movie", {
+    region: "JP",
+    with_release_type: "2|3",
+    "release_date.gte": addDays(visitDate, -TRAILER_WINDOW.before),
+    "release_date.lte": addDays(visitDate, TRAILER_WINDOW.after),
+    sort_by: "popularity.desc",
+    include_adult: false,
+    page: p,
+  });
+  return toListPage(list, p);
+}
+
+/** 予告動画だけを取得する（予告探しの「予告を見る」。仕様書 013）。選び方は詳細画面と同じ。 */
+export async function getTrailer(tmdbId: number): Promise<Trailer | null> {
+  const videos = await tmdbGet<{ results?: Parameters<typeof pickTrailer>[0] }>(
+    `/movie/${tmdbId}/videos`,
+    { include_video_language: "ja,en,null" },
+  );
+  return pickTrailer(videos.results);
 }

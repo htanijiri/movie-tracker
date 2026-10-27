@@ -95,6 +95,13 @@ export const userMovies = sqliteTable(
     rating: integer("rating"),
     review: text("review"),
 
+    // 劇場で見たときに「気になった予告」が何本あったか（仕様書 013）。0〜20。入れていなければ NULL。
+    // 0〜20 の CHECK はマイグレーションの SQL（0002）で列に付けている。ここに表の CHECK として書くと、
+    // drizzle-kit が user_movies を作り直すマイグレーションを生成してしまうため（TECH_NOTES）。
+    trailerCount: integer("trailer_count"),
+    // 「予告を探す」を途中で終えた日時（仕様書 013）。
+    trailerHuntClosedAt: text("trailer_hunt_closed_at"),
+
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -123,6 +130,7 @@ export const userMovies = sqliteTable(
       "user_movies_rating_check",
       sql`${t.rating} IS NULL OR (${t.rating} BETWEEN 1 AND 5)`,
     ),
+
   ],
 );
 
@@ -170,8 +178,37 @@ export const streamingNotices = sqliteTable(
   ],
 );
 
+// 「予告を探す」で、候補に「これだった／違う」を付けた記録（仕様書 013）。
+// 予告探しは、劇場で見た記録（visit_tmdb_id ＝ 見た映画）ごとに1つ。
+// 「違う」にした候補のスナップショットは持たないので、movies は参照しない。
+export const TRAILER_RESULTS = ["match", "reject"] as const;
+export type TrailerResult = (typeof TRAILER_RESULTS)[number];
+
+export const trailerFinds = sqliteTable(
+  "trailer_finds",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    visitTmdbId: integer("visit_tmdb_id").notNull(),
+    candidateTmdbId: integer("candidate_tmdb_id").notNull(),
+    result: text("result", { enum: TRAILER_RESULTS }).notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("trailer_finds_user_visit_candidate_unique").on(
+      t.userId,
+      t.visitTmdbId,
+      t.candidateTmdbId,
+    ),
+    check("trailer_finds_result_check", sql`${t.result} IN (${inList(TRAILER_RESULTS)})`),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Movie = typeof movies.$inferSelect;
 export type UserMovie = typeof userMovies.$inferSelect;
 export type MovieProviders = typeof movieProviders.$inferSelect;
 export type StreamingNotice = typeof streamingNotices.$inferSelect;
+export type TrailerFind = typeof trailerFinds.$inferSelect;

@@ -304,6 +304,11 @@ function WatchedFields({
         <FieldError message={errors.place} />
       </div>
 
+      {/* 「気になった予告」は、劇場で見たときだけ（仕様書 013）。 */}
+      {medium === "THEATER" && (
+        <TrailerCountField record={record} values={values} error={errors.trailerCount} />
+      )}
+
       <fieldset>
         <legend className="field-label">
           評価 <span className="font-normal text-muted">（任意）</span>
@@ -358,6 +363,76 @@ function WatchedFields({
         <FieldError message={errors.review} />
       </div>
     </div>
+  );
+}
+
+/** 「気になった予告」の本数（仕様書 013）。なし／1〜3本はボタン、「4本以上」を選ぶと数字の入力欄が出る。 */
+function TrailerCountField({
+  record,
+  values,
+  error,
+}: {
+  record: UserMovie | null;
+  values?: Record<string, string>;
+  error?: string;
+}) {
+  const saved = record?.trailerCount ?? null;
+  const initialChoice =
+    values?.trailerChoice ?? (saved === null ? "" : saved >= 4 ? "many" : String(saved));
+  const initialMany = values?.trailerMany ?? (saved !== null && saved >= 4 ? String(saved) : "4");
+  const [choice, setChoice] = useState(initialChoice);
+
+  const options = [
+    { value: "", label: "選ばない" },
+    { value: "0", label: "なし" },
+    { value: "1", label: "1本" },
+    { value: "2", label: "2本" },
+    { value: "3", label: "3本" },
+    { value: "many", label: "4本以上" },
+  ];
+  return (
+    <fieldset data-trailer-count>
+      <legend className="field-label">
+        気になった予告 <span className="font-normal text-muted">（任意）</span>
+      </legend>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => (
+          <label key={option.value} className={chipClass}>
+            <input
+              type="radio"
+              name="trailerChoice"
+              value={option.value}
+              checked={choice === option.value}
+              onChange={() => setChoice(option.value)}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+      {choice === "many" && (
+        <div className="mt-2 flex items-center gap-2">
+          <label htmlFor="trailerMany" className="text-sm text-zinc-300">
+            本数
+          </label>
+          <input
+            id="trailerMany"
+            type="number"
+            name="trailerMany"
+            inputMode="numeric"
+            min={4}
+            max={LIMITS.trailerCount}
+            defaultValue={initialMany}
+            className="field w-24"
+          />
+          <span className="text-sm text-zinc-300">本</span>
+        </div>
+      )}
+      <p className="mt-1 text-xs text-muted">
+        本数を入れると、トップページの「予告を探す」から、あとで候補の予告を見ながら探せます。
+      </p>
+      <FieldError message={error} />
+    </fieldset>
   );
 }
 

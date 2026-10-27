@@ -26,6 +26,8 @@ export default [
     route("search", "routes/search.tsx"),
     route("movies/:tmdbId", "routes/movie.tsx"),
     route("list", "routes/list.tsx"),
+    route("trailers/video/:id", "routes/trailers.video.ts"),
+    route("trailers/:tmdbId", "routes/trailers.tsx"),
   ]),
   ...publicRoutes,
   ...devOnlyRoutes,

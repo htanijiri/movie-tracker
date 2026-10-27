@@ -13,6 +13,8 @@ export const LIMITS = {
   place: 100,
   note: 500,
   review: 5000,
+  /** 「気になった予告」の本数の上限（仕様書 013）。 */
+  trailerCount: 20,
 } as const;
 
 export type FieldErrors = Record<string, string>;
@@ -87,6 +89,8 @@ export type WatchedValues = {
   place: string | null;
   rating: number | null;
   review: string | null;
+  /** 劇場で見たときの「気になった予告」の本数（仕様書 013）。劇場以外では常に null。 */
+  trailerCount: number | null;
 };
 
 export function parseWatched(form: FormData, today: string): Parsed<WatchedValues> {
@@ -96,6 +100,9 @@ export function parseWatched(form: FormData, today: string): Parsed<WatchedValue
     place: text(form, "place"),
     rating: text(form, "rating"),
     review: text(form, "review"),
+    // 「気になった予告」：なし／1〜3 はラジオボタンの値、「4本以上」（many）は数字の入力欄の値を使う（仕様書 013）。
+    trailerChoice: text(form, "trailerChoice"),
+    trailerMany: text(form, "trailerMany"),
   };
   const errors: FieldErrors = {};
 
@@ -116,6 +123,22 @@ export function parseWatched(form: FormData, today: string): Parsed<WatchedValue
   if (raw.review.length > LIMITS.review) {
     errors.review = `感想は${LIMITS.review}文字以内で入力してください。`;
   }
+  // 「気になった予告」は劇場で見たときだけ使う。劇場以外では、送られてきても無視する。
+  let trailerCount: number | null = null;
+  if (raw.medium === "THEATER" && raw.trailerChoice !== "") {
+    if (/^[0-3]$/.test(raw.trailerChoice)) {
+      trailerCount = Number(raw.trailerChoice);
+    } else if (
+      raw.trailerChoice === "many" &&
+      /^\d+$/.test(raw.trailerMany) &&
+      Number(raw.trailerMany) >= 4 &&
+      Number(raw.trailerMany) <= LIMITS.trailerCount
+    ) {
+      trailerCount = Number(raw.trailerMany);
+    } else {
+      errors.trailerCount = `「4本以上」のときは、本数を4〜${LIMITS.trailerCount}で入力してください。`;
+    }
+  }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors, values: raw };
   return {
@@ -126,6 +149,7 @@ export function parseWatched(form: FormData, today: string): Parsed<WatchedValue
       place: raw.place || null,
       rating: raw.rating === "" ? null : Number(raw.rating),
       review: raw.review || null,
+      trailerCount,
     },
   };
 }
