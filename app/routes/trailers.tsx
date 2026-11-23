@@ -1,13 +1,23 @@
 import { data, Form, isRouteErrorResponse, Link } from "react-router";
 
+import { AiConsult, type ChatView } from "~/components/AiConsult";
 import { Poster } from "~/components/Poster";
 import { TrailerCandidate, type CandidateItem } from "~/components/TrailerCandidate";
 import { huntLabel } from "~/components/TrailerHuntList";
 import { requireUser } from "~/context";
+import { isTrailerAiConfigured } from "~/lib/ai/trailer-chat.server";
 import { getDb } from "~/lib/db/client.server";
 import { getStatesByTmdbId } from "~/lib/db/user-movies.server";
 import { SITE_NAME, TMDB_ERROR_MESSAGE } from "~/lib/site";
 import { TmdbError, TmdbNotFoundError } from "~/lib/tmdb/client.server";
+import {
+  consultTrailerAi,
+  countAiRepliesToday,
+  DAILY_AI_REPLIES,
+  listTrailerChats,
+  loadSnapshots,
+  MAX_MESSAGE_LENGTH,
+} from "~/lib/trailer-chats.server";
 import {
   closeTrailerHunt,
   getTrailerHunt,
@@ -39,18 +49,20 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   const user = requireUser(context);
   const db = getDb();
   const hunt = await requireHunt(user.id, params.tmdbId);
-  const finds = await listTrailerFinds(db, user.id, hunt.tmdbId);
+  const [finds, states, chatRows, repliesToday] = await Promise.all([
+    listTrailerFinds(db, user.id, hunt.tmdbId),
+    getStatesByTmdbId(db, user.id),
+    listTrailerChats(db, user.id, hunt.tmdbId),
+    countAiRepliesToday(db, user.id),
+  ]);
+  const excluded = new Set([hunt.tmdbId, ...finds.matched.map((m) => m.tmdbId), ...finds.rejectedIds]);
 
   let candidates: CandidateItem[] = [];
   let error: string | null = null;
   if (!hunt.closed) {
     try {
-      const excluded = new Set([...finds.matched.map((m) => m.tmdbId), ...finds.rejectedIds]);
-      const [movies, states] = await Promise.all([
-        loadTrailerCandidates(hunt, excluded),
-        getStatesByTmdbId(db, user.id),
-      ]);
-      candidates = movies.map((m) => ({
+      const list = await loadTrailerCandidates(hunt, excluded);
+      candidates = list.map((m) => ({
         tmdbId: m.tmdbId,
         title: m.title,
         releaseDate: m.releaseDate,
@@ -64,12 +76,37 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     }
   }
 
+  // AI の候補は、保存したスナップショットで表示する。「これだった」「違う」にしたもの、
+  // 前の返答ですでに挙がったものは出さない。
+  const snapshots = await loadSnapshots(
+    db,
+    chatRows.flatMap((c) => c.candidates.map((x) => x.tmdbId)),
+  );
+  const shown = new Set(excluded);
+  const chats: ChatView[] = chatRows.map((c) => ({
+    id: c.id,
+    role: c.role,
+    content: c.content,
+    candidates: c.candidates.flatMap((x) => {
+      const movie = snapshots.get(x.tmdbId);
+      if (!movie || shown.has(x.tmdbId)) return [];
+      shown.add(x.tmdbId);
+      return [{ ...movie, state: states.get(x.tmdbId) ?? null, reason: x.reason }];
+    }),
+  }));
+
   return {
     hunt,
     matched: finds.matched,
     rejectedCount: finds.rejectedIds.length,
     candidates,
     error,
+    ai: {
+      configured: isTrailerAiConfigured(),
+      chats,
+      repliesLeft: Math.max(DAILY_AI_REPLIES - repliesToday, 0),
+      maxLength: MAX_MESSAGE_LENGTH,
+    },
   };
 }
 
@@ -103,6 +140,19 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       }
       return { ok: true };
     }
+    // AI に相談（仕様書 014）
+    case "ask": {
+      if (hunt.closed) return invalid("この予告探しは終わっています。");
+      if (!isTrailerAiConfigured()) return invalid("AI の設定がまだです。");
+      const message = String(form.get("message") ?? "").trim();
+      if (message === "") return invalid("覚えていることを書いてください。");
+      if ([...message].length > MAX_MESSAGE_LENGTH) {
+        return invalid(`${MAX_MESSAGE_LENGTH}文字以内で書いてください。`);
+      }
+      const result = await consultTrailerAi(db, user.id, hunt, message);
+      // AI が失敗したときも 500 にせず、入力を残したまま案内を出す。
+      return result.ok ? { ok: true } : { ok: false, error: result.error, message };
+    }
     case "restore-rejects":
       await restoreRejects(db, user.id, hunt.tmdbId);
       return { ok: true };
@@ -115,7 +165,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function TrailerHuntPage({ loaderData }: Route.ComponentProps) {
-  const { hunt, matched, rejectedCount, candidates, error } = loaderData;
+  const { hunt, matched, rejectedCount, candidates, error, ai } = loaderData;
   const remaining = Math.max(hunt.trailerCount - hunt.found, 0);
 
   return (
@@ -154,9 +204,18 @@ export default function TrailerHuntPage({ loaderData }: Route.ComponentProps) {
       )}
 
       {!hunt.closed && (
+        <AiConsult
+          chats={ai.chats}
+          configured={ai.configured}
+          repliesLeft={ai.repliesLeft}
+          maxLength={ai.maxLength}
+        />
+      )}
+
+      {!hunt.closed && (
         <section className="mt-6" aria-labelledby="candidates-title">
           <h2 id="candidates-title" className="section-title">
-            候補
+            注目度の高い候補
           </h2>
           <p className="mt-1 text-xs text-muted">
             この日の1か月前から半年後までに公開（予定）の映画を、注目度の高い順に並べています。予告を見て「これだった」か「違う」を押してください。

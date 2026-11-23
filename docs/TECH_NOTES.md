@@ -119,6 +119,15 @@
 ### zsh では、変数が単語に分割されない
 - 確認用のシェルスクリプトで `set -- $IDS` と書いたら、zsh では1つの引数として渡り、URL が壊れて `curl` が終了コード 3 で失敗した。複数の値を1つの変数に入れて回す処理は、`bash` で実行する。
 
+### AI に相談：Workers から Claude の API を呼ぶ（仕様書 014）
+- 公式の TypeScript SDK（`@anthropic-ai/sdk`）は、Workers でもそのまま動く。サーバーのコードの大きさは、gzip で約 479KB（無料プランの上限 3MB に余裕がある）。
+- Sonnet 5.5 では、ツールの強制指定（`tool_choice: any / tool`）が 400 になる。候補を受け取るためのツール `show_candidates` は `strict: true` にし、「最後に必ず呼ぶ」とシステムプロンプトで指示する。呼ばれなかったときは本文だけを返答として扱う。
+- Web 検索（`web_search_20260209`）は Anthropic 側で動くので、アプリから見ると1回の API 呼び出し。検索が長引くと `stop_reason: "pause_turn"` で止まるので、応答をそのまま送り返して続きを頼む（「続けて」とは書き足さない）。
+- 会話の続きでは、保存した本文だけを送る。検索結果のブロックを送り直すと、その分が毎回入力として課金されるうえ、記事の内容をアプリに保存することになるため。
+- SDK は `process.env.ANTHROPIC_BASE_URL` を読む。`nodejs_compat` の Workers では `.dev.vars` の値が `process.env` に入るので、開発サーバーの画面確認では、`.dev.vars` に一時的に `ANTHROPIC_BASE_URL=http://localhost:<port>` を書き、手元のモックに向けた（実物の API を呼ばず、費用もかからない）。確認後は消す。
+- D1 は、1つの SQL に渡せる値が100個まで。AI の候補のスナップショットを `IN (...)` で読むと、会話が長くなったときに超えるので、90個ずつに分けて読む（テストで、20行を1回の INSERT で入れようとして `too many SQL variables` になって気づいた）。
+- 費用の確認のため、返答ごとに、トークン数と検索回数だけをログに出す（本文は出さない）。`pnpm exec wrangler tail` で見られる。
+
 ## 4. 「効かなかったこと」リスト
 - **`@cloudflare/vitest-pool-workers` を入れる** → 改名されて非推奨。`@cloudflare/vitest-plugin` を使う。
 - **Vitest の最新版（5 系）をそのまま使う** → プラグインが 4.1 系を要求する。

@@ -8,6 +8,8 @@ export const SECRET_KEYS = [
   "GOOGLE_CLIENT_SECRET",
   "ALLOWED_EMAILS",
   "SESSION_SECRET",
+  // 「AI に相談」（仕様書 014）。未設定でもアプリは動き、AI の欄に「設定がまだです」と出す。
+  "ANTHROPIC_API_KEY",
 ] as const;
 export type SecretKey = (typeof SECRET_KEYS)[number];
 

@@ -9,6 +9,7 @@ import type { Db } from "./client.server";
 import {
   movieProviders,
   movies,
+  trailerChats,
   trailerFinds,
   userMovies,
   type StreamingProvider,
@@ -96,10 +97,13 @@ export async function removeUserMovie(
     db
       .delete(userMovies)
       .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, tmdbId))),
-    // その映画を見たときの「予告を探す」の記録も消す（仕様書 013）。
+    // その映画を見たときの「予告を探す」の記録も消す（仕様書 013）と、AI との会話も消す（仕様書 014）。
     db
       .delete(trailerFinds)
       .where(and(eq(trailerFinds.userId, userId), eq(trailerFinds.visitTmdbId, tmdbId))),
+    db
+      .delete(trailerChats)
+      .where(and(eq(trailerChats.userId, userId), eq(trailerChats.visitTmdbId, tmdbId))),
   ]);
 }
 
@@ -190,10 +194,13 @@ export async function unwatch(db: Db, userId: string, tmdbId: number): Promise<v
         updatedAt: nowIso(),
       })
       .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, tmdbId))),
-    // 見た記録を取り消したら、そのときの「予告を探す」の記録も消す（仕様書 013）。
+    // 見た記録を取り消したら、そのときの「予告を探す」の記録も消す（仕様書 013）と、AI との会話も消す（仕様書 014）。
     db
       .delete(trailerFinds)
       .where(and(eq(trailerFinds.userId, userId), eq(trailerFinds.visitTmdbId, tmdbId))),
+    db
+      .delete(trailerChats)
+      .where(and(eq(trailerChats.userId, userId), eq(trailerChats.visitTmdbId, tmdbId))),
   ]);
 }
 

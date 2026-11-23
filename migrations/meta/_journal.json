@@ -22,6 +22,13 @@
       "when": 1793098363798,
       "tag": "0002_trailer_hunt",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795411930316,
+      "tag": "0003_trailer_chats",
+      "breakpoints": true
     }
   ]
 }

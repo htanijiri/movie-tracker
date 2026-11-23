@@ -22,6 +22,7 @@ export default defineConfig(async () => {
             GOOGLE_CLIENT_SECRET: "test-client-secret",
             ALLOWED_EMAILS: "owner@example.com",
             SESSION_SECRET: "test-session-secret-0123456789abcdefghijklmnop",
+            ANTHROPIC_API_KEY: "test-anthropic-api-key",
           },
         },
       }),

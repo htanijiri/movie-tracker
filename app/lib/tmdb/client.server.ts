@@ -142,6 +142,21 @@ export async function searchMovies(query: string, page = 1): Promise<MovieListPa
   return toListPage(list, p);
 }
 
+/**
+ * AI が挙げた作品を、タイトルと公開年で TMDb から特定する（仕様書 014）。
+ * 公開年つきで見つからなければ、公開年なしで探し直す（日本と海外で公開年がずれることがあるため）。
+ * 見つからなければ null。
+ */
+export async function findMovieByTitle(title: string, year: number | null): Promise<MovieSummary | null> {
+  const search = (params: Params) =>
+    tmdbGet<TmdbList>("/search/movie", { query: title, region: "JP", include_adult: false, ...params });
+  if (year !== null) {
+    const withYear = toListPage(await search({ year }), 1).results;
+    if (withYear.length > 0) return withYear[0];
+  }
+  return toListPage(await search({}), 1).results[0] ?? null;
+}
+
 /** 日本で公開中の映画。 */
 export async function listNowPlaying(page = 1): Promise<MovieListPage> {
   const p = clampPage(page);

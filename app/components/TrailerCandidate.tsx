@@ -17,6 +17,8 @@ export type CandidateItem = {
   backdropPath?: string | null;
   /** すでにリストにある映画なら、その状態。 */
   state: StateKey | null;
+  /** AI が挙げた候補なら、その理由（仕様書 014）。 */
+  reason?: string;
 };
 
 type VideoResult = { trailer: Trailer | null; error: string | null };
@@ -48,6 +50,12 @@ export function TrailerCandidate({ candidate }: { candidate: CandidateItem }) {
             {formatYmd(candidate.releaseDate) ? `${formatYmd(candidate.releaseDate)} 公開` : "公開日未定"}
           </p>
           {candidate.state && <StateBadge state={candidate.state} className="mt-1" />}
+          {candidate.reason && (
+            <p className="mt-1 text-xs leading-snug text-zinc-300" data-reason>
+              <span aria-hidden="true">💬 </span>
+              {candidate.reason}
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-2">
             {!video.data && (
               <button

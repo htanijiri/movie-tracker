@@ -1,4 +1,4 @@
-import { data, isRouteErrorResponse, Link } from "react-router";
+import { data, isRouteErrorResponse, Link, redirect } from "react-router";
 
 import { ReleaseLabel } from "~/components/MovieCard";
 import { MyRecord, type ActionResult } from "~/components/MyRecord";
@@ -19,6 +19,7 @@ import {
   unwatch,
 } from "~/lib/db/user-movies.server";
 import { formatRuntime } from "~/lib/format";
+import { getTrailerHunt } from "~/lib/trailers.server";
 import { releaseStatus } from "~/lib/release";
 import { SITE_NAME, TMDB_ERROR_MESSAGE } from "~/lib/site";
 import {
@@ -120,6 +121,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       if (!parsed.ok) return invalid(parsed.errors, parsed.values);
       await ensureMovieSnapshot(db, tmdbId).catch(toRouteError);
       await saveWatched(db, user.id, tmdbId, parsed.values);
+      // 劇場で見て「気になった予告」があれば、忘れないうちに「予告を探す」へ進む（仕様書 014）。
+      if (parsed.values.medium === "THEATER" && (parsed.values.trailerCount ?? 0) >= 1) {
+        const hunt = await getTrailerHunt(db, user.id, tmdbId);
+        if (hunt && !hunt.closed) throw redirect(`/trailers/${tmdbId}`);
+      }
       return ok();
     }
 

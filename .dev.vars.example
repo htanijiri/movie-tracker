@@ -17,3 +17,7 @@ ALLOWED_EMAILS=you@example.com
 # セッション Cookie の署名鍵。32バイト以上のランダムな値にする。
 #   openssl rand -base64 48
 SESSION_SECRET=replace-with-a-long-random-string
+
+# Anthropic の API キー（「AI に相談」で使う。仕様書 014）。sk-ant- で始まる文字列。
+# 未設定でもアプリは動く（AI の欄に「AI の設定がまだです」と出る）。
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-api-key

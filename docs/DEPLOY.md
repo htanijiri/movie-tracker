@@ -16,6 +16,7 @@
 | `GOOGLE_CLIENT_SECRET` | Google ログイン | `.dev.vars` | Workers のシークレット |
 | `ALLOWED_EMAILS` | このアプリを使ってよいメールアドレス（カンマ区切り） | `.dev.vars` | Workers のシークレット |
 | `SESSION_SECRET` | セッション Cookie の署名鍵 | `.dev.vars` | Workers のシークレット（手元とは別の値） |
+| `ANTHROPIC_API_KEY` | 「AI に相談」で Claude の API を呼ぶ（仕様書 014）。未設定でもアプリは動く | `.dev.vars`（任意） | Workers のシークレット |
 | `CLOUDFLARE_API_TOKEN` | GitHub Actions からデプロイする | — | GitHub のリポジトリのシークレット |
 
 デプロイ先の Cloudflare アカウントは、`wrangler.jsonc` の `account_id` で決まる（識別子であり秘密情報ではないので、リポジトリに書いている）。アカウント ID をシークレットに登録する必要はない。
@@ -130,6 +131,7 @@ pnpm run deploy
 - **データを直接見る**：`pnpm exec wrangler d1 execute movie-tracker --remote --command "SELECT COUNT(*) FROM user_movies"`。
 - **無料プランの上限**：Workers は1日10万リクエスト、1リクエストあたり CPU 10ミリ秒。D1 は 5GB、1日 500万行の読み取り、10万行の書き込み。超えるとその日はエラーになる（料金は発生しない）。
 - **許可するアカウントを変える**：`pnpm exec wrangler secret put ALLOWED_EMAILS` で登録し直す。外したメールアドレスのセッションは、すぐに無効になる。
+- **AI の費用**：「AI に相談」は Anthropic の API を使い、使った分だけ費用がかかる（返答1回でおよそ 0.1〜0.2ドル）。アプリの側では、利用者ごとに1日20回まで。月の上限額は Anthropic の管理画面で設定する。API キーを登録し直すときは `pnpm exec wrangler secret put ANTHROPIC_API_KEY`。
 - **TMDb の利用条件**：非商用に限る。クレジットのページ（`/about`）を消さない。広告や課金を入れる場合は、先に TMDb に問い合わせる。
 
 ## 6. ロールバック

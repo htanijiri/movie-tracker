@@ -37,14 +37,23 @@ async function seedVisit(user: SessionUser, extra: Partial<typeof userMovies.$in
   });
 }
 
-const postMovie = (user: SessionUser, tmdbId: number, fields: Record<string, string>) =>
-  movieAction(routeArgs({ request: formRequest(`/movies/${tmdbId}`, fields), params: { tmdbId: String(tmdbId) }, user }));
+// 「気になった予告」を1本以上にして保存すると「予告を探す」へリダイレクトする（仕様書 014）ので、
+// throw された Response も戻り値として受け取る。
+const postMovie = async (user: SessionUser, tmdbId: number, fields: Record<string, string>) => {
+  try {
+    return await movieAction(routeArgs({ request: formRequest(`/movies/${tmdbId}`, fields), params: { tmdbId: String(tmdbId) }, user }));
+  } catch (thrown) {
+    if (thrown instanceof Response) return thrown;
+    throw thrown;
+  }
+};
 const postHunt = (user: SessionUser, fields: Record<string, string>, visit = VISIT) =>
   action(routeArgs({ request: formRequest(`/trailers/${visit}`, fields), params: { tmdbId: String(visit) }, user }));
 const loadHunt = (user: SessionUser, visit = VISIT) =>
   loader(routeArgs({ params: { tmdbId: String(visit) }, user }));
 
 const unwrap = (r: unknown) => {
+  if (r instanceof Response) return { status: r.status, body: {} as Record<string, unknown> };
   const w = r as { type?: string; data?: unknown; init?: ResponseInit | null };
   return w?.type === "DataWithResponseInit" ? { status: w.init?.status ?? 200, body: w.data as Record<string, unknown> } : { status: 200, body: r as Record<string, unknown> };
 };
@@ -79,7 +88,8 @@ describe("見た記録の「気になった予告」（仕様書 013 AC1）", ()
     const user = await createUser();
     await createMovie();
     const { status } = unwrap(await postMovie(user, 1001, watched(fields)));
-    expect(status).toBe(200);
+    // 1本以上なら「予告を探す」へリダイレクトする（仕様書 014）。
+    expect(status).toBe(expected !== null && expected >= 1 ? 302 : 200);
     expect((await row(user.id, 1001))!.trailer_count).toBe(expected);
   });
 

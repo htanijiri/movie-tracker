@@ -20,6 +20,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   // テストどうしが影響しないよう、毎回すべての行を消す（子テーブルから順に）。
   await testEnv.DB.batch([
+    testEnv.DB.prepare("DELETE FROM trailer_chats"),
     testEnv.DB.prepare("DELETE FROM trailer_finds"),
     testEnv.DB.prepare("DELETE FROM streaming_notices"),
     testEnv.DB.prepare("DELETE FROM movie_providers"),
@@ -28,7 +29,7 @@ beforeEach(async () => {
     testEnv.DB.prepare("DELETE FROM users"),
   ]);
 
-  // テストから外部（TMDb、Google）に実際に通信しないようにする。
+  // テストから外部（TMDb、Google、Anthropic）に実際に通信しないようにする。
   // 通信が必要なテストは、test/helpers の mockFetch で応答を用意する。
   vi.stubGlobal(
     "fetch",

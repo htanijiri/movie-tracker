@@ -206,6 +206,34 @@ export const trailerFinds = sqliteTable(
   ],
 );
 
+// 「AI に相談」の会話（仕様書 014）。予告探し（visit_tmdb_id ＝ 見た映画）ごとに続けられる。
+// 保存するのは、利用者が書いた本文と AI の返答の本文、AI が挙げた候補（TMDb の ID と理由）だけ。
+// Web 検索の結果（記事の内容）は保存しない。
+export const CHAT_ROLES = ["user", "assistant"] as const;
+export type ChatRole = (typeof CHAT_ROLES)[number];
+export type ChatCandidate = { tmdbId: number; reason: string };
+
+export const trailerChats = sqliteTable(
+  "trailer_chats",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    visitTmdbId: integer("visit_tmdb_id").notNull(),
+    role: text("role", { enum: CHAT_ROLES }).notNull(),
+    content: text("content").notNull(),
+    /** AI が挙げた候補（assistant の行だけ）。 */
+    candidates: text("candidates", { mode: "json" }).$type<ChatCandidate[]>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("trailer_chats_user_visit_idx").on(t.userId, t.visitTmdbId, t.createdAt),
+    index("trailer_chats_user_created_idx").on(t.userId, t.createdAt),
+    check("trailer_chats_role_check", sql`${t.role} IN (${inList(CHAT_ROLES)})`),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Movie = typeof movies.$inferSelect;
 export type UserMovie = typeof userMovies.$inferSelect;
