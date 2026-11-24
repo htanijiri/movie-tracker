@@ -3,7 +3,7 @@ import { data, Form, isRouteErrorResponse, Link } from "react-router";
 import { AiConsult, type ChatView } from "~/components/AiConsult";
 import { Poster } from "~/components/Poster";
 import { TrailerCandidate, type CandidateItem } from "~/components/TrailerCandidate";
-import { huntLabel } from "~/components/TrailerHuntList";
+import { huntLabel, huntProgress } from "~/components/TrailerHuntList";
 import { requireUser } from "~/context";
 import { isTrailerAiConfigured } from "~/lib/ai/trailer-chat.server";
 import { getDb } from "~/lib/db/client.server";
@@ -25,6 +25,7 @@ import {
   loadTrailerCandidates,
   matchTrailer,
   rejectTrailer,
+  reopenTrailerHunt,
   restoreRejects,
 } from "~/lib/trailers.server";
 import { parseMedium, parseTmdbId } from "~/lib/validation";
@@ -159,6 +160,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     case "close":
       await closeTrailerHunt(db, user.id, hunt.tmdbId);
       return { ok: true };
+    // もう一度探す（仕様書 015）
+    case "reopen":
+      if (!hunt.reopenable) return invalid("この予告探しは開き直せません。");
+      await reopenTrailerHunt(db, user.id, hunt.tmdbId);
+      return { ok: true };
     default:
       return invalid("この操作は受け付けられません。");
   }
@@ -166,7 +172,6 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
 export default function TrailerHuntPage({ loaderData }: Route.ComponentProps) {
   const { hunt, matched, rejectedCount, candidates, error, ai } = loaderData;
-  const remaining = Math.max(hunt.trailerCount - hunt.found, 0);
 
   return (
     <div>
@@ -178,12 +183,19 @@ export default function TrailerHuntPage({ loaderData }: Route.ComponentProps) {
       <h1 className="mt-2 text-xl font-bold">予告を探す</h1>
       <p className="mt-1 text-sm text-zinc-300">{huntLabel(hunt)}</p>
       <p className="mt-1 text-sm font-bold text-amber-300" data-progress>
-        {hunt.closed
-          ? hunt.found >= hunt.trailerCount
-            ? `気になった予告 ${hunt.trailerCount}本をすべて見つけました`
-            : `探すのを終えました（${hunt.trailerCount}本中 ${hunt.found}本）`
-          : `気になった予告 ${hunt.trailerCount}本中 あと${remaining}本`}
+        {huntProgress(hunt)}
       </p>
+      {hunt.reopenable && (
+        <Form method="post" className="mt-3" data-reopen>
+          <input type="hidden" name="intent" value="reopen" />
+          <button type="submit" className="btn btn-primary w-full">
+            もう一度探す
+          </button>
+          <p className="mt-1 text-xs text-muted">
+            見つけた予告や「違う」にした候補、AI との会話はそのまま残ります。
+          </p>
+        </Form>
+      )}
 
       {matched.length > 0 && (
         <section className="mt-4" aria-labelledby="matched-title" data-section="matched">

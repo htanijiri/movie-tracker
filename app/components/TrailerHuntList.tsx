@@ -12,6 +12,14 @@ export function huntLabel(hunt: Pick<TrailerHunt, "watchedAt" | "watchedPlace" |
     .join(" ");
 }
 
+/** 予告探しの進み具合（「予告を探す」画面と、映画の詳細画面の入り口で使う）。 */
+export function huntProgress(hunt: Pick<TrailerHunt, "trailerCount" | "found"> & { closed: boolean }): string {
+  if (!hunt.closed) return `気になった予告 ${hunt.trailerCount}本中 あと${Math.max(hunt.trailerCount - hunt.found, 0)}本`;
+  return hunt.found >= hunt.trailerCount
+    ? `気になった予告 ${hunt.trailerCount}本をすべて見つけました`
+    : `探すのを終えました（${hunt.trailerCount}本中 ${hunt.found}本）`;
+}
+
 /** トップページの「予告を探す」（探し終わっていないもの。仕様書 013）。 */
 export function TrailerHuntList({ hunts }: { hunts: TrailerHunt[] }) {
   if (hunts.length === 0) return null;

@@ -3,6 +3,7 @@ import { data, isRouteErrorResponse, Link, redirect } from "react-router";
 import { ReleaseLabel } from "~/components/MovieCard";
 import { MyRecord, type ActionResult } from "~/components/MyRecord";
 import { Poster } from "~/components/Poster";
+import { huntProgress } from "~/components/TrailerHuntList";
 import { TrailerPlayer } from "~/components/TrailerPlayer";
 import { WatchProvidersSection } from "~/components/WatchProvidersSection";
 import { requireUser } from "~/context";
@@ -69,12 +70,14 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   const db = getDb();
   // 一覧の画面で TMDb を呼ばずにタイトルとポスターを出せるよう、最小限の情報を保存しておく。
   await upsertMovieSnapshot(db, movie);
-  const [record, suggestions] = await Promise.all([
+  const [record, suggestions, hunt] = await Promise.all([
     getUserMovie(db, user.id, tmdbId),
     listPlaceSuggestions(db, user.id),
+    // 劇場で見て「気になった予告」があれば、「予告を探す」の入り口を出す（仕様書 015）。
+    getTrailerHunt(db, user.id, tmdbId),
   ]);
 
-  return { movie, record, suggestions, today: todayInTokyo() };
+  return { movie, record, suggestions, hunt, today: todayInTokyo() };
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -141,7 +144,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function MovieDetailPage({ loaderData, actionData }: Route.ComponentProps) {
-  const { movie, record, suggestions, today } = loaderData;
+  const { movie, record, suggestions, hunt, today } = loaderData;
   const backdrop = backdropUrl(movie.backdropPath);
   const facts = [
     formatYmd(movie.releaseDate) ? `${formatYmd(movie.releaseDate)} 公開` : "公開日未定",
@@ -207,6 +210,23 @@ export default function MovieDetailPage({ loaderData, actionData }: Route.Compon
           actionData={actionData as ActionResult | undefined}
         />
       </div>
+
+      {hunt && (
+        <Link
+          to={`/trailers/${hunt.tmdbId}`}
+          className="mt-4 flex items-center gap-3 rounded-xl border border-amber-800 bg-amber-950/30 px-3 py-2"
+          data-hunt-link
+        >
+          <span aria-hidden="true">🎞</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">予告を探す</span>
+            <span className="block text-xs text-amber-300">{huntProgress(hunt)}</span>
+          </span>
+          <span aria-hidden="true" className="text-zinc-500">
+            ›
+          </span>
+        </Link>
+      )}
 
       {movie.trailer && (
         <section className="mt-6" aria-labelledby="trailer-title">

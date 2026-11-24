@@ -73,12 +73,19 @@ export async function listOpenTrailerHunts(db: Db, userId: string): Promise<Trai
     .orderBy(desc(userMovies.watchedAt), desc(userMovies.updatedAt));
 }
 
+export type TrailerHuntState = TrailerHunt & {
+  /** 探すのを終えた、またはすべて見つけた。 */
+  closed: boolean;
+  /** 「もう一度探す」で開き直せる（終えていて、まだ見つけていない予告が残っている。仕様書 015）。 */
+  reopenable: boolean;
+};
+
 /** ある見た記録の予告探し。対象でなければ null。 */
 export async function getTrailerHunt(
   db: Db,
   userId: string,
   tmdbId: number,
-): Promise<(TrailerHunt & { closed: boolean }) | null> {
+): Promise<TrailerHuntState | null> {
   const row = await db
     .select({ ...huntColumns, closedAt: userMovies.trailerHuntClosedAt })
     .from(userMovies)
@@ -87,7 +94,8 @@ export async function getTrailerHunt(
     .get();
   if (!row) return null;
   const { closedAt, ...hunt } = row;
-  return { ...hunt, closed: closedAt !== null || hunt.found >= hunt.trailerCount };
+  const allFound = hunt.found >= hunt.trailerCount;
+  return { ...hunt, closed: closedAt !== null || allFound, reopenable: closedAt !== null && !allFound };
 }
 
 export type FoundTrailer = {
@@ -230,5 +238,13 @@ export async function closeTrailerHunt(db: Db, userId: string, visitTmdbId: numb
   await db
     .update(userMovies)
     .set({ trailerHuntClosedAt: new Date().toISOString() })
+    .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, visitTmdbId)));
+}
+
+/** 「もう一度探す」。終えた予告探しを、探している途中に戻す（仕様書 015）。 */
+export async function reopenTrailerHunt(db: Db, userId: string, visitTmdbId: number): Promise<void> {
+  await db
+    .update(userMovies)
+    .set({ trailerHuntClosedAt: null })
     .where(and(eq(userMovies.userId, userId), eq(userMovies.tmdbId, visitTmdbId)));
 }
