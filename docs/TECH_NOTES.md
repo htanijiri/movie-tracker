@@ -127,6 +127,7 @@
 - SDK は `process.env.ANTHROPIC_BASE_URL` を読む。`nodejs_compat` の Workers では `.dev.vars` の値が `process.env` に入るので、開発サーバーの画面確認では、`.dev.vars` に一時的に `ANTHROPIC_BASE_URL=http://localhost:<port>` を書き、手元のモックに向けた（実物の API を呼ばず、費用もかからない）。確認後は消す。
 - D1 は、1つの SQL に渡せる値が100個まで。AI の候補のスナップショットを `IN (...)` で読むと、会話が長くなったときに超えるので、90個ずつに分けて読む（テストで、20行を1回の INSERT で入れようとして `too many SQL variables` になって気づいた）。
 - 費用の確認のため、返答ごとに、トークン数と検索回数だけをログに出す（本文は出さない）。`pnpm exec wrangler tail` で見られる。
+- 本番で実測（2026-11-24）：システムプロンプトと候補の一覧（約9,000トークン）は、1回目にキャッシュに書き込まれ、同じ予告探しの2回目では読み込み（料金は1割）になった。2回の相談で約 0.04 ドル。手がかりが少ないと、AI は Web 検索をせずに聞き返してくる。
 
 ## 4. 「効かなかったこと」リスト
 - **`@cloudflare/vitest-pool-workers` を入れる** → 改名されて非推奨。`@cloudflare/vitest-plugin` を使う。
